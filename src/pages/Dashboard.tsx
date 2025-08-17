@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -10,12 +10,15 @@ import {
   Users,
   Globe,
   Palette,
-  MoreVertical
+  MoreVertical,
+  Trash2,
+  Edit3
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { projectsService, type Project } from "@/services/projects";
+import { useOptimisticUpdate } from "@/hooks/useOptimisticUpdate";
 
 interface ProjectWithStats extends Project {
   wordCount: number;
@@ -28,6 +31,15 @@ const Dashboard = () => {
   const { toast } = useToast();
   const [projects, setProjects] = useState<ProjectWithStats[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Optimistic delete project operation
+  const { execute: executeDelete } = useOptimisticUpdate(
+    projectsService.deleteProject,
+    {
+      successMessage: "Project deleted successfully!",
+      errorMessage: "Failed to delete project. Please try again."
+    }
+  );
 
   useEffect(() => {
     if (user) {
@@ -89,6 +101,21 @@ const Dashboard = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDeleteProject = async (projectId: string, projectTitle: string) => {
+    if (!confirm(`Are you sure you want to delete "${projectTitle}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    const originalProjects = [...projects];
+    const optimisticProjects = projects.filter(p => p.id !== projectId);
+
+    await executeDelete(
+      () => setProjects(optimisticProjects),
+      () => setProjects(originalProjects),
+      projectId
+    );
   };
 
   const formatTimeAgo = (dateString: string) => {
@@ -223,9 +250,23 @@ const Dashboard = () => {
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className={`w-12 h-16 rounded-lg bg-gradient-to-br ${project.coverColor} shadow-sm`} />
-                    <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity">
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button variant="ghost" size="icon" asChild>
+                        <Link to={`/project/${project.id}`}>
+                          <Edit3 className="h-4 w-4" />
+                        </Link>
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleDeleteProject(project.id, project.title);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                   <div>
                     <CardTitle className="text-lg leading-tight">{project.title}</CardTitle>

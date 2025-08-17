@@ -11,6 +11,7 @@ import { projectsService } from "@/services/projects";
 import { chaptersService } from "@/services/chapters";
 import { useNavigate } from "react-router-dom";
 import { BookOpen, Target, Palette } from "lucide-react";
+import { useOptimisticUpdate } from "@/hooks/useOptimisticUpdate";
 
 const ProjectNew = () => {
   const { user } = useAuth();
@@ -24,6 +25,25 @@ const ProjectNew = () => {
     goalWords: "",
     template: "blank"
   });
+
+  // Optimistic project creation
+  const { execute: executeCreate } = useOptimisticUpdate(
+    async (projectData: any) => {
+      const project = await projectsService.createProject(projectData);
+      // Create the first chapter for the new project
+      await chaptersService.createChapter({
+        project_id: project.id,
+        title: "Chapter 1",
+        content: "",
+        idx: 0
+      });
+      return project;
+    },
+    {
+      successMessage: "Project created successfully!",
+      errorMessage: "Failed to create project. Please try again."
+    }
+  );
 
   const genres = [
     "Fantasy", "Science Fiction", "Mystery", "Romance", "Thriller", 
@@ -64,41 +84,27 @@ const ProjectNew = () => {
 
     setLoading(true);
     
-    try {
-      const project = await projectsService.createProject({
-        user_id: user.id,
-        title: formData.title.trim(),
-        genre: formData.genre || undefined,
-        synopsis: formData.synopsis.trim() || undefined,
-        goal_words: formData.goalWords ? parseInt(formData.goalWords) : undefined,
-        template: formData.template || undefined,
-        status: 'active'
-      });
+    const projectData = {
+      user_id: user.id,
+      title: formData.title.trim(),
+      genre: formData.genre || undefined,
+      synopsis: formData.synopsis.trim() || undefined,
+      goal_words: formData.goalWords ? parseInt(formData.goalWords) : undefined,
+      template: formData.template || undefined,
+      status: 'active' as const
+    };
 
-      // Create the first chapter for the new project
-      await chaptersService.createChapter({
-        project_id: project.id,
-        title: "Chapter 1",
-        content: "",
-        idx: 0
-      });
+    const result = await executeCreate(
+      () => {}, // No optimistic UI update for creation
+      () => {}, // No rollback needed
+      projectData
+    );
 
-      toast({
-        title: "Success",
-        description: "Project created successfully!",
-      });
-
-      navigate(`/project/${project.id}`);
-    } catch (error) {
-      console.error('Failed to create project:', error);
-      toast({
-        title: "Error",
-        description: "Failed to create project. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+    if (result) {
+      navigate(`/project/${result.id}`);
     }
+    
+    setLoading(false);
   };
 
   return (

@@ -24,6 +24,7 @@ import { useLocalBackup } from "@/hooks/useLocalBackup";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { chaptersService, type Chapter } from "@/services/chapters";
 import { useAuth } from "@/hooks/useAuth";
+import ChapterManager from "@/components/Project/ChapterManager";
 
 const ProjectEditor = () => {
   const { id: projectId } = useParams();
@@ -38,6 +39,23 @@ const ProjectEditor = () => {
   const [loading, setLoading] = useState(true);
 
   const currentChapter = chapters[currentChapterIndex];
+
+  const handleChaptersUpdate = (updatedChapters: Chapter[]) => {
+    setChapters(updatedChapters);
+    // Update current content if current chapter changed
+    if (updatedChapters[currentChapterIndex]) {
+      setCurrentContent(updatedChapters[currentChapterIndex].content || "");
+      setWordCount(updatedChapters[currentChapterIndex].word_count || 0);
+    }
+  };
+
+  const handleChapterSelect = (index: number) => {
+    if (index >= 0 && index < chapters.length) {
+      setCurrentChapterIndex(index);
+      setCurrentContent(chapters[index]?.content || "");
+      setWordCount(chapters[index]?.word_count || 0);
+    }
+  };
 
   // Load chapters on mount
   useEffect(() => {
@@ -189,30 +207,14 @@ const ProjectEditor = () => {
       {/* Chapter Sidebar */}
       {!isFullscreen && (
         <div className="hidden md:flex w-64 border-r bg-muted/30 flex-col">
-          <div className="p-4 border-b">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold">Chapters</h3>
-              <Button size="icon" variant="ghost">
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-          
-          <div className="flex-1 overflow-y-auto">
-              {chapters.map((chapter, index) => (
-                <div
-                  key={chapter.id}
-                  className={`p-3 border-b cursor-pointer hover:bg-accent/50 transition-colors ${
-                    index === currentChapterIndex ? 'bg-accent border-l-4 border-l-primary' : ''
-                  }`}
-                  onClick={() => setCurrentChapterIndex(index)}
-              >
-                <div className="font-medium text-sm mb-1">{chapter.title}</div>
-                <div className="text-xs text-muted-foreground">
-                  {chapter.word_count || 0} words
-                </div>
-              </div>
-            ))}
+          <div className="p-2">
+            <ChapterManager
+              projectId={projectId || ''}
+              chapters={chapters}
+              currentChapterIndex={currentChapterIndex}
+              onChaptersUpdate={handleChaptersUpdate}
+              onChapterSelect={handleChapterSelect}
+            />
           </div>
         </div>
       )}
@@ -283,16 +285,13 @@ const ProjectEditor = () => {
                   <h3 className="text-lg font-medium mb-2">No chapters yet</h3>
                   <p>This project doesn't have any chapters. Create your first chapter to start writing!</p>
                 </div>
-                <Button onClick={() => {
-                  // TODO: Implement create chapter functionality
-                  toast({
-                    title: "Coming Soon",
-                    description: "Chapter creation feature will be available soon!",
-                  });
-                }}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create First Chapter
-                </Button>
+                <ChapterManager
+                  projectId={projectId || ''}
+                  chapters={chapters}
+                  currentChapterIndex={currentChapterIndex}
+                  onChaptersUpdate={handleChaptersUpdate}
+                  onChapterSelect={handleChapterSelect}
+                />
               </div>
             ) : (
               <div className="flex items-center justify-center h-full">
@@ -359,7 +358,7 @@ const ProjectEditor = () => {
               variant="ghost"
               size="sm"
               disabled={currentChapterIndex === 0}
-              onClick={() => setCurrentChapterIndex(currentChapterIndex - 1)}
+              onClick={() => handleChapterSelect(currentChapterIndex - 1)}
             >
               <ChevronLeft className="h-4 w-4 mr-2" />
               Previous
@@ -373,7 +372,7 @@ const ProjectEditor = () => {
               variant="ghost"
               size="sm"
               disabled={currentChapterIndex === chapters.length - 1}
-              onClick={() => setCurrentChapterIndex(currentChapterIndex + 1)}
+              onClick={() => handleChapterSelect(currentChapterIndex + 1)}
             >
               Next
               <ChevronRight className="h-4 w-4 ml-2" />
