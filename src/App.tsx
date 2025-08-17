@@ -11,6 +11,7 @@ import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Auth/Login";
 import Register from "./pages/Auth/Register";
 import ProjectOverview from "./pages/Project/ProjectOverview";
+import ProjectNew from "./pages/Project/ProjectNew";
 import ProjectEditor from "./pages/Project/ProjectEditor";
 import ProjectCharacters from "./pages/Project/ProjectCharacters";
 import ProjectWorldbuilding from "./pages/Project/ProjectWorldbuilding";
@@ -31,6 +32,7 @@ const App = () => (
             <Route path="/" element={<AppLayout />}>
               <Route index element={<Landing />} />
               <Route path="dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="project/new" element={<ProtectedRoute><ProjectNew /></ProtectedRoute>} />
               <Route path="project/:id" element={<ProtectedRoute><ProjectOverview /></ProtectedRoute>} />
               <Route path="project/:id/editor" element={<ProtectedRoute><ProjectEditor /></ProtectedRoute>} />
               <Route path="project/:id/characters" element={<ProtectedRoute><ProjectCharacters /></ProtectedRoute>} />

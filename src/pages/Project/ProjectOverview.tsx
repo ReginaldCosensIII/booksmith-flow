@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
@@ -13,59 +14,107 @@ import {
   BarChart3
 } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
+import { projectsService, type Project } from "@/services/projects";
 
 const ProjectOverview = () => {
   const { id } = useParams();
-  
-  // Mock project data
-  const project = {
-    id,
-    title: "The Dragon's Echo",
-    wordCount: 45000,
-    wordGoal: 80000,
-    dailyGoal: 1000,
-    genre: "Fantasy",
-    progress: 56,
-    chapters: 12,
-    characters: 8,
-    worldNotes: 15,
-    lastEdited: "2 hours ago",
-    createdAt: "2024-01-15",
-    targetDate: "2024-06-15"
+  const { toast } = useToast();
+  const [project, setProject] = useState<Project | null>(null);
+  const [stats, setStats] = useState({
+    totalWords: 0,
+    chaptersCount: 0,
+    charactersCount: 0,
+    worldNotesCount: 0
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (id) {
+      loadProject();
+    }
+  }, [id]);
+
+  const loadProject = async () => {
+    if (!id) return;
+    
+    try {
+      setLoading(true);
+      const [projectData, projectStats] = await Promise.all([
+        projectsService.getProject(id),
+        projectsService.getProjectStats(id)
+      ]);
+      
+      if (!projectData) {
+        toast({
+          title: "Error",
+          description: "Project not found",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      setProject(projectData);
+      setStats(projectStats);
+    } catch (error) {
+      console.error('Failed to load project:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load project details",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const recentActivity = [
-    { action: "Wrote 1,200 words", time: "2 hours ago", chapter: "Chapter 12" },
-    { action: "Added character", time: "1 day ago", character: "Lyra Shadowmend" },
-    { action: "Updated world note", time: "2 days ago", note: "Kingdom of Eldara" },
-    { action: "Wrote 800 words", time: "3 days ago", chapter: "Chapter 11" }
-  ];
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-muted-foreground">Loading project...</div>
+      </div>
+    );
+  }
+
+  if (!project) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 text-center">
+        <h2 className="text-xl font-semibold mb-2">Project not found</h2>
+        <p className="text-muted-foreground mb-4">The project you're looking for doesn't exist or you don't have access to it.</p>
+        <Button asChild>
+          <Link to="/dashboard">Return to Dashboard</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  const progress = project.goal_words ? Math.min((stats.totalWords / project.goal_words) * 100, 100) : 0;
 
   const quickStats = [
     {
-      label: "Words Today",
-      value: "1,200",
+      label: "Total Words",
+      value: stats.totalWords.toLocaleString(),
       icon: Edit3,
       color: "text-green-600",
       bg: "bg-green-500/10"
     },
     {
       label: "Chapters",
-      value: project.chapters.toString(),
+      value: stats.chaptersCount.toString(),
       icon: BookOpen,
       color: "text-blue-600", 
       bg: "bg-blue-500/10"
     },
     {
       label: "Characters",
-      value: project.characters.toString(),
+      value: stats.charactersCount.toString(),
       icon: Users,
       color: "text-purple-600",
       bg: "bg-purple-500/10"
     },
     {
       label: "World Notes",
-      value: project.worldNotes.toString(),
+      value: stats.worldNotesCount.toString(),
       icon: Globe,
       color: "text-orange-600",
       bg: "bg-orange-500/10"
@@ -78,7 +127,9 @@ const ProjectOverview = () => {
       <div className="space-y-4">
         <div>
           <h1 className="text-3xl font-bold">{project.title}</h1>
-          <p className="text-muted-foreground">{project.genre} • Created {new Date(project.createdAt).toLocaleDateString()}</p>
+          <p className="text-muted-foreground">
+            {project.genre || "No genre"} • Created {new Date(project.created_at).toLocaleDateString()}
+          </p>
         </div>
         
         {/* Progress Section */}
@@ -89,22 +140,22 @@ const ProjectOverview = () => {
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="font-semibold">Writing Progress</h3>
                   <span className="text-sm font-medium">
-                    {project.wordCount.toLocaleString()} / {project.wordGoal.toLocaleString()} words
+                    {stats.totalWords.toLocaleString()} / {(project.goal_words || 0).toLocaleString()} words
                   </span>
                 </div>
-                <Progress value={project.progress} className="h-3 mb-2" />
+                <Progress value={progress} className="h-3 mb-2" />
                 <p className="text-sm text-muted-foreground">
-                  {project.progress}% complete • {(project.wordGoal - project.wordCount).toLocaleString()} words remaining
+                  {Math.round(progress)}% complete • {Math.max(0, (project.goal_words || 0) - stats.totalWords).toLocaleString()} words remaining
                 </p>
               </div>
               
               <div>
                 <div className="flex items-center gap-2 mb-3">
                   <Target className="h-5 w-5 text-primary" />
-                  <h3 className="font-semibold">Daily Goal</h3>
+                  <h3 className="font-semibold">Goal</h3>
                 </div>
-                <p className="text-2xl font-bold">{project.dailyGoal.toLocaleString()}</p>
-                <p className="text-sm text-muted-foreground">words per day</p>
+                <p className="text-2xl font-bold">{(project.goal_words || 0).toLocaleString()}</p>
+                <p className="text-sm text-muted-foreground">total words</p>
               </div>
             </div>
           </CardContent>
@@ -187,33 +238,31 @@ const ProjectOverview = () => {
           </Card>
         </div>
 
-        {/* Recent Activity */}
+        {/* Project Details */}
         <Card className="bg-gradient-card border-0 shadow-soft">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Calendar className="h-5 w-5" />
-              Recent Activity
+              Project Details
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {recentActivity.map((activity, index) => (
-              <div key={index} className="flex items-start gap-3">
-                <div className="w-2 h-2 rounded-full bg-primary mt-2" />
-                <div className="flex-1">
-                  <p className="font-medium text-sm">{activity.action}</p>
-                  <p className="text-xs text-muted-foreground">{activity.time}</p>
-                  {activity.chapter && (
-                    <p className="text-xs text-primary">{activity.chapter}</p>
-                  )}
-                  {activity.character && (
-                    <p className="text-xs text-primary">{activity.character}</p>
-                  )}
-                  {activity.note && (
-                    <p className="text-xs text-primary">{activity.note}</p>
-                  )}
-                </div>
+            <div>
+              <h4 className="font-medium text-sm mb-2">Status</h4>
+              <p className="text-sm text-muted-foreground capitalize">{project.status}</p>
+            </div>
+            {project.synopsis && (
+              <div>
+                <h4 className="font-medium text-sm mb-2">Synopsis</h4>
+                <p className="text-sm text-muted-foreground">{project.synopsis}</p>
               </div>
-            ))}
+            )}
+            <div>
+              <h4 className="font-medium text-sm mb-2">Last Updated</h4>
+              <p className="text-sm text-muted-foreground">
+                {new Date(project.updated_at).toLocaleDateString()}
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>

@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -12,57 +13,100 @@ import {
   MoreVertical
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+import { projectsService, type Project } from "@/services/projects";
 
-interface Project {
-  id: string;
-  title: string;
+interface ProjectWithStats extends Project {
   wordCount: number;
-  wordGoal: number;
-  lastEdited: string;
-  genre: string;
   progress: number;
   coverColor: string;
 }
 
 const Dashboard = () => {
-  // Mock data - in real app, this would come from API
-  const projects: Project[] = [
-    {
-      id: "1",
-      title: "The Dragon's Echo",
-      wordCount: 45000,
-      wordGoal: 80000,
-      lastEdited: "2 hours ago",
-      genre: "Fantasy",
-      progress: 56,
-      coverColor: "from-purple-500 to-pink-500"
-    },
-    {
-      id: "2", 
-      title: "Silicon Dreams",
-      wordCount: 12000,
-      wordGoal: 70000,
-      lastEdited: "1 day ago",
-      genre: "Sci-Fi",
-      progress: 17,
-      coverColor: "from-blue-500 to-cyan-500"
-    },
-    {
-      id: "3",
-      title: "The Last Detective",
-      wordCount: 28000,
-      wordGoal: 65000,
-      lastEdited: "3 days ago", 
-      genre: "Mystery",
-      progress: 43,
-      coverColor: "from-gray-700 to-gray-900"
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [projects, setProjects] = useState<ProjectWithStats[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (user) {
+      loadProjects();
     }
-  ];
+  }, [user]);
+
+  const loadProjects = async () => {
+    if (!user) return;
+    
+    try {
+      setLoading(true);
+      const userProjects = await projectsService.getUserProjects(user.id);
+      
+      // Get stats for each project
+      const projectsWithStats = await Promise.all(
+        userProjects.map(async (project) => {
+          try {
+            const stats = await projectsService.getProjectStats(project.id);
+            const progress = project.goal_words ? Math.min((stats.totalWords / project.goal_words) * 100, 100) : 0;
+            
+            // Generate consistent colors based on project id
+            const colors = [
+              "from-purple-500 to-pink-500",
+              "from-blue-500 to-cyan-500", 
+              "from-green-500 to-emerald-500",
+              "from-orange-500 to-red-500",
+              "from-indigo-500 to-purple-500",
+              "from-gray-700 to-gray-900"
+            ];
+            const colorIndex = parseInt(project.id.slice(-1), 36) % colors.length;
+            
+            return {
+              ...project,
+              wordCount: stats.totalWords,
+              progress: Math.round(progress),
+              coverColor: colors[colorIndex]
+            };
+          } catch (error) {
+            console.error(`Failed to load stats for project ${project.id}:`, error);
+            return {
+              ...project,
+              wordCount: 0,
+              progress: 0,
+              coverColor: "from-gray-500 to-gray-700"
+            };
+          }
+        })
+      );
+      
+      setProjects(projectsWithStats);
+    } catch (error) {
+      console.error('Failed to load projects:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load projects. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+    
+    if (diffInHours < 1) return "Just now";
+    if (diffInHours < 24) return `${diffInHours} hour${diffInHours === 1 ? '' : 's'} ago`;
+    const diffInDays = Math.floor(diffInHours / 24);
+    if (diffInDays < 7) return `${diffInDays} day${diffInDays === 1 ? '' : 's'} ago`;
+    return date.toLocaleDateString();
+  };
 
   const stats = {
     totalWords: projects.reduce((sum, project) => sum + project.wordCount, 0),
-    activeProjects: projects.length,
-    completedProjects: 2,
+    activeProjects: projects.filter(p => p.status === 'active').length,
+    completedProjects: projects.filter(p => p.status === 'finished').length,
     weeklyGoal: 5000
   };
 
@@ -157,68 +201,92 @@ const Dashboard = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {projects.map((project) => (
-            <Card key={project.id} className="group hover:shadow-elegant transition-all duration-300 border-0 bg-gradient-card">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className={`w-12 h-16 rounded-lg bg-gradient-to-br ${project.coverColor} shadow-sm`} />
-                  <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div>
-                  <CardTitle className="text-lg leading-tight">{project.title}</CardTitle>
-                  <p className="text-sm text-muted-foreground">{project.genre}</p>
-                </div>
-              </CardHeader>
-              
-              <CardContent className="pt-0">
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex justify-between text-sm mb-2">
-                      <span className="text-muted-foreground">Progress</span>
-                      <span className="font-medium">{formatNumber(project.wordCount)} / {formatNumber(project.wordGoal)}</span>
-                    </div>
-                    <Progress value={project.progress} className="h-2" />
-                  </div>
-                  
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-muted-foreground">Last edited {project.lastEdited}</span>
-                  </div>
-                  
-                  <div className="flex gap-2 pt-2">
-                    <Button variant="outline" size="sm" asChild className="flex-1">
-                      <Link to={`/project/${project.id}`}>
-                        <BookOpen className="h-4 w-4 mr-2" />
-                        Overview
-                      </Link>
-                    </Button>
-                    <Button size="sm" asChild className="flex-1">
-                      <Link to={`/project/${project.id}/editor`}>
-                        Continue Writing
-                      </Link>
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-
-          {/* Create New Project Card */}
-          <Card className="group hover:shadow-elegant transition-all duration-300 border-2 border-dashed border-muted-foreground/20 bg-transparent">
-            <CardContent className="flex flex-col items-center justify-center p-8 text-center min-h-[300px]">
-              <div className="p-4 bg-primary/10 rounded-full mb-4 group-hover:bg-primary/20 transition-colors">
-                <Plus className="h-8 w-8 text-primary" />
-              </div>
-              <h3 className="text-lg font-semibold mb-2">Start a New Project</h3>
-              <p className="text-muted-foreground mb-4">Begin your next masterpiece with AI-powered assistance</p>
+          {loading ? (
+            <div className="col-span-full flex items-center justify-center py-12">
+              <div className="text-muted-foreground">Loading projects...</div>
+            </div>
+          ) : projects.length === 0 ? (
+            <div className="col-span-full flex flex-col items-center justify-center py-12 text-center">
+              <BookOpen className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold mb-2">No projects yet</h3>
+              <p className="text-muted-foreground mb-4">Create your first project to get started!</p>
               <Button asChild>
                 <Link to="/project/new">
+                  <Plus className="h-4 w-4 mr-2" />
                   Create Project
                 </Link>
               </Button>
-            </CardContent>
-          </Card>
+            </div>
+          ) : (
+            projects.map((project) => (
+              <Card key={project.id} className="group hover:shadow-elegant transition-all duration-300 border-0 bg-gradient-card">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div className={`w-12 h-16 rounded-lg bg-gradient-to-br ${project.coverColor} shadow-sm`} />
+                    <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-opacity">
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg leading-tight">{project.title}</CardTitle>
+                    <p className="text-sm text-muted-foreground">{project.genre || "No genre"}</p>
+                  </div>
+                </CardHeader>
+                
+                <CardContent className="pt-0">
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex justify-between text-sm mb-2">
+                        <span className="text-muted-foreground">Progress</span>
+                        <span className="font-medium">
+                          {formatNumber(project.wordCount)} / {formatNumber(project.goal_words || 0)}
+                        </span>
+                      </div>
+                      <Progress value={project.progress} className="h-2" />
+                    </div>
+                    
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-muted-foreground">
+                        Last edited {formatTimeAgo(project.updated_at)}
+                      </span>
+                    </div>
+                    
+                    <div className="flex gap-2 pt-2">
+                      <Button variant="outline" size="sm" asChild className="flex-1">
+                        <Link to={`/project/${project.id}`}>
+                          <BookOpen className="h-4 w-4 mr-2" />
+                          Overview
+                        </Link>
+                      </Button>
+                      <Button size="sm" asChild className="flex-1">
+                        <Link to={`/project/${project.id}/editor`}>
+                          Continue Writing
+                        </Link>
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
+
+          {/* Create New Project Card - only show if there are existing projects */}
+          {!loading && projects.length > 0 && (
+            <Card className="group hover:shadow-elegant transition-all duration-300 border-2 border-dashed border-muted-foreground/20 bg-transparent">
+              <CardContent className="flex flex-col items-center justify-center p-8 text-center min-h-[300px]">
+                <div className="p-4 bg-primary/10 rounded-full mb-4 group-hover:bg-primary/20 transition-colors">
+                  <Plus className="h-8 w-8 text-primary" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Start a New Project</h3>
+                <p className="text-muted-foreground mb-4">Begin your next masterpiece with AI-powered assistance</p>
+                <Button asChild>
+                  <Link to="/project/new">
+                    Create Project
+                  </Link>
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Quick Actions */}
