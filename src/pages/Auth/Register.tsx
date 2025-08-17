@@ -1,15 +1,18 @@
 import { useState } from "react";
+import { Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { PenTool, Mail, Lock, Eye, EyeOff, User } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
 
 const Register = () => {
+  const { user, loading, signUp } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -18,34 +21,34 @@ const Register = () => {
     password: "",
     acceptTerms: false
   });
-  
-  const navigate = useNavigate();
-  const { toast } = useToast();
+
+  // Redirect if already authenticated
+  if (!loading && user) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.acceptTerms) {
-      toast({
-        title: "Please accept the terms",
-        description: "You must accept our Terms of Service and Privacy Policy to continue.",
-        variant: "destructive"
-      });
+      toast.error("You must accept our Terms of Service and Privacy Policy to continue.");
       return;
     }
     
-    setIsLoading(true);
+    if (!formData.email || !formData.password) return;
     
-    // TODO: Implement actual registration
-    setTimeout(() => {
-      toast({
-        title: "Welcome to The Booksmith!",
-        description: "Your account has been created successfully. Let's start writing!"
-      });
-      navigate("/dashboard");
-      setIsLoading(false);
-    }, 1000);
+    setIsLoading(true);
+    await signUp(formData.email, formData.password, formData.name);
+    setIsLoading(false);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">

@@ -8,7 +8,8 @@ import { AuthProvider } from "@/hooks/useAuth";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Landing from "./pages/Landing";
 import Dashboard from "./pages/Dashboard";
-import Auth from "./pages/Auth/Auth";
+import Login from "./pages/Auth/Login";
+import Register from "./pages/Auth/Register";
 import ProjectOverview from "./pages/Project/ProjectOverview";
 import ProjectEditor from "./pages/Project/ProjectEditor";
 import ProjectCharacters from "./pages/Project/ProjectCharacters";
@@ -39,7 +40,9 @@ const App = () => (
             </Route>
             
             {/* Auth routes without layout */}
-            <Route path="/auth" element={<Auth />} />
+            <Route path="/auth/login" element={<Login />} />
+            <Route path="/auth/register" element={<Register />} />
+            <Route path="/auth" element={<Login />} />
             
             {/* Catch-all route */}
             <Route path="*" element={<NotFound />} />
