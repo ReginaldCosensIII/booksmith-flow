@@ -14,13 +14,371 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      assets: {
+        Row: {
+          created_at: string
+          id: string
+          project_id: string
+          prompt: string | null
+          type: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          project_id: string
+          prompt?: string | null
+          type: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          project_id?: string
+          prompt?: string | null
+          type?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assets_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chapters: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          idx: number
+          project_id: string
+          title: string
+          updated_at: string
+          word_count: number
+        }
+        Insert: {
+          content?: string
+          created_at?: string
+          id?: string
+          idx?: number
+          project_id: string
+          title: string
+          updated_at?: string
+          word_count?: number
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          idx?: number
+          project_id?: string
+          title?: string
+          updated_at?: string
+          word_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chapters_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      characters: {
+        Row: {
+          appearance: string | null
+          backstory: string | null
+          created_at: string
+          goals: string | null
+          id: string
+          name: string
+          notes: string | null
+          project_id: string
+          relationships: string | null
+          role: string | null
+        }
+        Insert: {
+          appearance?: string | null
+          backstory?: string | null
+          created_at?: string
+          goals?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          project_id: string
+          relationships?: string | null
+          role?: string | null
+        }
+        Update: {
+          appearance?: string | null
+          backstory?: string | null
+          created_at?: string
+          goals?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          project_id?: string
+          relationships?: string | null
+          role?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "characters_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      print_credits: {
+        Row: {
+          expires_at: string
+          id: string
+          issued_at: string
+          redeemed_order_id: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          expires_at: string
+          id?: string
+          issued_at?: string
+          redeemed_order_id?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          expires_at?: string
+          id?: string
+          issued_at?: string
+          redeemed_order_id?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      print_orders: {
+        Row: {
+          created_at: string
+          credit_redemption_id: string | null
+          id: string
+          project_id: string
+          provider_order_id: string | null
+          quote: Json | null
+          spec: Json
+          status: string
+          tracking_url: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          credit_redemption_id?: string | null
+          id?: string
+          project_id: string
+          provider_order_id?: string | null
+          quote?: Json | null
+          spec: Json
+          status?: string
+          tracking_url?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          credit_redemption_id?: string | null
+          id?: string
+          project_id?: string
+          provider_order_id?: string | null
+          quote?: Json | null
+          spec?: Json
+          status?: string
+          tracking_url?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "print_orders_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          plan: string | null
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id: string
+          plan?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          plan?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      projects: {
+        Row: {
+          cover_image_url: string | null
+          created_at: string
+          genre: string | null
+          goal_words: number | null
+          id: string
+          status: string | null
+          synopsis: string | null
+          template: string | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cover_image_url?: string | null
+          created_at?: string
+          genre?: string | null
+          goal_words?: number | null
+          id?: string
+          status?: string | null
+          synopsis?: string | null
+          template?: string | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cover_image_url?: string | null
+          created_at?: string
+          genre?: string | null
+          goal_words?: number | null
+          id?: string
+          status?: string | null
+          synopsis?: string | null
+          template?: string | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          current_period_end: string | null
+          plan: string
+          provider: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          current_period_end?: string | null
+          plan?: string
+          provider?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          current_period_end?: string | null
+          plan?: string
+          provider?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      usage_ai: {
+        Row: {
+          calls: number
+          day: string
+          id: string
+          tokens: number
+          user_id: string
+        }
+        Insert: {
+          calls?: number
+          day?: string
+          id?: string
+          tokens?: number
+          user_id: string
+        }
+        Update: {
+          calls?: number
+          day?: string
+          id?: string
+          tokens?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      world_notes: {
+        Row: {
+          body: string | null
+          created_at: string
+          id: string
+          project_id: string
+          title: string
+          type: string | null
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          project_id: string
+          title: string
+          type?: string | null
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          project_id?: string
+          title?: string
+          type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "world_notes_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_owner: {
+        Args: { pid: string; uid: string }
+        Returns: boolean
+      }
+      word_count_of: {
+        Args: { "": string }
+        Returns: number
+      }
     }
     Enums: {
       [_ in never]: never
