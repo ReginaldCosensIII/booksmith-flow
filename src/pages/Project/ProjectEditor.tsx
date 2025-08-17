@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { 
   Bot,
@@ -19,69 +18,114 @@ import {
 } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-
-interface Chapter {
-  id: string;
-  title: string;
-  content: string;
-  wordCount: number;
-}
+import { RichTextEditor } from "@/components/Editor/RichTextEditor";
+import { useAutosave } from "@/hooks/useAutosave";
+import { useLocalBackup } from "@/hooks/useLocalBackup";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
+import { chaptersService, type Chapter } from "@/services/chapters";
+import { useAuth } from "@/hooks/useAuth";
 
 const ProjectEditor = () => {
-  const { id } = useParams();
+  const { id: projectId } = useParams();
   const { toast } = useToast();
-  const [currentChapter, setCurrentChapter] = useState(0);
-  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
+  const { user } = useAuth();
+  const [currentChapterIndex, setCurrentChapterIndex] = useState(0);
   const [aiAssistantOpen, setAiAssistantOpen] = useState(false);
   const [wordCount, setWordCount] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  
-  // Mock chapters data
-  const [chapters, setChapters] = useState<Chapter[]>([
-    {
-      id: "1",
-      title: "The Beginning",
-      content: "In the mystical realm of Eldara, where dragons soar through crystalline skies and magic flows like rivers through ancient forests, our story begins...\n\nLyra Shadowmend stood at the edge of the Whispering Cliffs, her emerald eyes scanning the horizon for any sign of the legendary Dragon's Echo. The artifact had been lost for centuries, but the recent tremors in the magical ley lines suggested it was awakening.\n\nThe wind carried with it the scent of jasmine and something else—something ancient and powerful that made her skin tingle with anticipation. Today would change everything.",
-      wordCount: 95
+  const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [currentContent, setCurrentContent] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  const currentChapter = chapters[currentChapterIndex];
+
+  // Load chapters on mount
+  useEffect(() => {
+    const loadChapters = async () => {
+      if (!projectId) return;
+
+      try {
+        setLoading(true);
+        const data = await chaptersService.getChaptersByProject(projectId);
+        setChapters(data);
+        
+        if (data.length > 0) {
+          setCurrentContent(data[0].content || "");
+          setWordCount(data[0].word_count || 0);
+        }
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to load chapters. Please try again.",
+          variant: "destructive",
+        });
+        console.error('Failed to load chapters:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadChapters();
+  }, [projectId, toast]);
+
+  // Local backup for current chapter
+  const { restoreFromBackup, clearBackup } = useLocalBackup({
+    userId: user?.id,
+    projectId: projectId || '',
+    chapterId: currentChapter?.id || '',
+    content: currentContent,
+    enabled: !!user && !!projectId && !!currentChapter,
+  });
+
+  // Autosave functionality
+  const { saveStatus, save } = useAutosave(currentContent, {
+    onSave: async (content: string) => {
+      if (!currentChapter) return;
+
+      const updatedChapter = await chaptersService.updateChapterContent(
+        currentChapter.id,
+        content
+      );
+
+      // Update local chapters state with new word count from DB
+      setChapters(prev => prev.map(ch => 
+        ch.id === currentChapter.id 
+          ? { ...ch, content, word_count: updatedChapter.word_count }
+          : ch
+      ));
+
+      // Clear backup after successful save
+      clearBackup();
     },
-    {
-      id: "2", 
-      title: "The Discovery",
-      content: "As the sun began to set behind the mountains...",
-      wordCount: 9
-    }
-  ]);
+    enabled: !!currentChapter,
+  });
 
-  const [currentContent, setCurrentContent] = useState(chapters[currentChapter]?.content || "");
+  // Keyboard shortcuts
+  useKeyboardShortcuts({
+    onSave: save,
+    enabled: !!currentChapter,
+  });
 
+  // Handle chapter switching
   useEffect(() => {
-    setCurrentContent(chapters[currentChapter]?.content || "");
-  }, [currentChapter, chapters]);
-
-  useEffect(() => {
-    const words = currentContent.trim().split(/\s+/).filter(word => word.length > 0).length;
-    setWordCount(words);
-    
-    // Auto-save simulation
-    if (currentContent !== chapters[currentChapter]?.content) {
-      setSaveStatus('unsaved');
+    if (currentChapter) {
+      const serverContent = currentChapter.content || "";
+      const serverTimestamp = new Date(currentChapter.updated_at).getTime();
       
-      const timer = setTimeout(() => {
-        setSaveStatus('saving');
-        setTimeout(() => {
-          setSaveStatus('saved');
-          // Update the chapter content
-          setChapters(prev => prev.map((chapter, index) => 
-            index === currentChapter 
-              ? { ...chapter, content: currentContent, wordCount: words }
-              : chapter
-          ));
-        }, 500);
-      }, 1500);
-      
-      return () => clearTimeout(timer);
+      // Restore from backup if available and newer
+      const restoredContent = restoreFromBackup(serverContent, serverTimestamp);
+      setCurrentContent(restoredContent);
+      setWordCount(currentChapter.word_count || 0);
     }
-  }, [currentContent, currentChapter, chapters]);
+  }, [currentChapterIndex, chapters, restoreFromBackup]);
+
+  const handleContentChange = (newContent: string) => {
+    setCurrentContent(newContent);
+  };
+
+  const handleWordCountChange = (count: number) => {
+    setWordCount(count);
+  };
 
   const aiSuggestions = [
     {
@@ -132,17 +176,17 @@ const ProjectEditor = () => {
           </div>
           
           <div className="flex-1 overflow-y-auto">
-            {chapters.map((chapter, index) => (
-              <div
-                key={chapter.id}
-                className={`p-3 border-b cursor-pointer hover:bg-accent/50 transition-colors ${
-                  index === currentChapter ? 'bg-accent border-l-4 border-l-primary' : ''
-                }`}
-                onClick={() => setCurrentChapter(index)}
+              {chapters.map((chapter, index) => (
+                <div
+                  key={chapter.id}
+                  className={`p-3 border-b cursor-pointer hover:bg-accent/50 transition-colors ${
+                    index === currentChapterIndex ? 'bg-accent border-l-4 border-l-primary' : ''
+                  }`}
+                  onClick={() => setCurrentChapterIndex(index)}
               >
                 <div className="font-medium text-sm mb-1">{chapter.title}</div>
                 <div className="text-xs text-muted-foreground">
-                  {chapter.wordCount} words
+                  {chapter.word_count || 0} words
                 </div>
               </div>
             ))}
@@ -155,7 +199,7 @@ const ProjectEditor = () => {
         {/* Editor Toolbar */}
         <div className="flex items-center justify-between p-4 border-b bg-background/95 backdrop-blur">
           <div className="flex items-center gap-4">
-            <h2 className="font-semibold">{chapters[currentChapter]?.title}</h2>
+            <h2 className="font-semibold">{currentChapter?.title || "Untitled Chapter"}</h2>
             <div className="text-sm text-muted-foreground">
               {wordCount} words
             </div>
@@ -165,11 +209,13 @@ const ProjectEditor = () => {
             <div className="flex items-center gap-2 text-sm">
               <div className={`w-2 h-2 rounded-full ${
                 saveStatus === 'saved' ? 'bg-green-500' : 
-                saveStatus === 'saving' ? 'bg-yellow-500' : 'bg-red-500'
+                saveStatus === 'saving' ? 'bg-yellow-500' : 
+                saveStatus === 'error' ? 'bg-red-500' : 'bg-yellow-500'
               }`} />
               <span className="text-muted-foreground">
-                {saveStatus === 'saved' ? 'Saved' : 
-                 saveStatus === 'saving' ? 'Saving...' : 'Unsaved'}
+                {saveStatus === 'saved' ? 'All changes saved' : 
+                 saveStatus === 'saving' ? 'Saving...' : 
+                 saveStatus === 'error' ? 'Save failed' : 'Unsaved changes'}
               </span>
             </div>
             
@@ -196,13 +242,23 @@ const ProjectEditor = () => {
         <div className="flex-1 flex">
           {/* Writing Area */}
           <div className="flex-1 p-6">
-            <Textarea
-              value={currentContent}
-              onChange={(e) => setCurrentContent(e.target.value)}
-              placeholder="Start writing your story..."
-              className="w-full h-full resize-none border-0 focus-visible:ring-0 text-base leading-relaxed prose-writing"
-              style={{ minHeight: 'calc(100vh - 200px)' }}
-            />
+            {loading ? (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-muted-foreground">Loading chapters...</div>
+              </div>
+            ) : currentChapter ? (
+              <RichTextEditor
+                content={currentContent}
+                onChange={handleContentChange}
+                onWordCount={handleWordCountChange}
+                placeholder="Start writing your story..."
+                className="h-full border-0"
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-muted-foreground">No chapters found</div>
+              </div>
+            )}
           </div>
 
           {/* AI Assistant Panel */}
@@ -262,22 +318,22 @@ const ProjectEditor = () => {
             <Button
               variant="ghost"
               size="sm"
-              disabled={currentChapter === 0}
-              onClick={() => setCurrentChapter(currentChapter - 1)}
+              disabled={currentChapterIndex === 0}
+              onClick={() => setCurrentChapterIndex(currentChapterIndex - 1)}
             >
               <ChevronLeft className="h-4 w-4 mr-2" />
               Previous
             </Button>
             
             <span className="text-sm text-muted-foreground">
-              Chapter {currentChapter + 1} of {chapters.length}
+              Chapter {currentChapterIndex + 1} of {chapters.length}
             </span>
             
             <Button
               variant="ghost"
               size="sm"
-              disabled={currentChapter === chapters.length - 1}
-              onClick={() => setCurrentChapter(currentChapter + 1)}
+              disabled={currentChapterIndex === chapters.length - 1}
+              onClick={() => setCurrentChapterIndex(currentChapterIndex + 1)}
             >
               Next
               <ChevronRight className="h-4 w-4 ml-2" />
