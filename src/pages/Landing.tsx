@@ -11,10 +11,17 @@ import {
   ArrowRight,
   Sparkles
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
 import heroImage from "@/assets/hero-booksmith.jpg";
 
 const Landing = () => {
+  const { user, loading } = useAuth();
+
+  // Redirect authenticated users to dashboard
+  if (!loading && user) {
+    return <Navigate to="/dashboard" replace />;
+  }
   const features = [
     {
       icon: Bot,
@@ -94,7 +101,7 @@ const Landing = () => {
               
               <div className="flex flex-col sm:flex-row gap-4">
                 <Button size="lg" variant="secondary" asChild className="shadow-glow">
-                  <Link to="/auth/register">
+                  <Link to="/auth">
                     Start Writing Free
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Link>
@@ -188,7 +195,7 @@ const Landing = () => {
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button size="lg" variant="secondary" asChild className="shadow-glow">
-              <Link to="/auth/register">
+              <Link to="/auth">
                 Start Writing Today
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
