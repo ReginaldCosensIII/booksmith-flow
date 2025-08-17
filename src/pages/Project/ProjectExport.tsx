@@ -13,7 +13,12 @@ import {
   Settings,
   CheckCircle,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Printer,
+  Truck,
+  Shield,
+  Smartphone,
+  ExternalLink
 } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -300,6 +305,113 @@ const ProjectExport = () => {
           </Card>
         </div>
       </div>
+
+      {/* Export Options */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        {/* Digital Export */}
+        <Card className="p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <Download className="h-5 w-5 text-primary" />
+            <h3 className="text-lg font-semibold">Digital Export</h3>
+          </div>
+          <p className="text-muted-foreground mb-4">
+            Export your book in various digital formats for online distribution or personal use.
+          </p>
+          <div className="space-y-3">
+            <Button className="w-full justify-start" variant="outline">
+              <FileText className="mr-2 h-4 w-4" />
+              Export PDF
+            </Button>
+            <Button className="w-full justify-start" variant="outline">
+              <Book className="mr-2 h-4 w-4" />
+              Export EPUB
+            </Button>
+            <Button className="w-full justify-start" variant="outline">
+              <Smartphone className="mr-2 h-4 w-4" />
+              Export MOBI
+            </Button>
+            <Button className="w-full justify-start" variant="outline">
+              <FileText className="mr-2 h-4 w-4" />
+              Export Word (.docx)
+            </Button>
+          </div>
+        </Card>
+
+        {/* Publishing Options */}
+        <Card className="p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <Globe className="h-5 w-5 text-primary" />
+            <h3 className="text-lg font-semibold">Publishing</h3>
+          </div>
+          <p className="text-muted-foreground mb-4">
+            Publish directly to major platforms and marketplaces.
+          </p>
+          <div className="space-y-3">
+            <Button className="w-full justify-start" variant="outline" disabled>
+              <ExternalLink className="mr-2 h-4 w-4" />
+              Kindle Direct Publishing
+              <span className="ml-2 text-xs bg-muted px-2 py-1 rounded">Coming Soon</span>
+            </Button>
+            <Button className="w-full justify-start" variant="outline" disabled>
+              <ExternalLink className="mr-2 h-4 w-4" />
+              Apple Books
+              <span className="ml-2 text-xs bg-muted px-2 py-1 rounded">Coming Soon</span>
+            </Button>
+            <Button className="w-full justify-start" variant="outline" disabled>
+              <ExternalLink className="mr-2 h-4 w-4" />
+              Google Play Books
+              <span className="ml-2 text-xs bg-muted px-2 py-1 rounded">Coming Soon</span>
+            </Button>
+          </div>
+        </Card>
+      </div>
+
+      {/* Print-on-Demand Section */}
+      <Card className="p-6 border-dashed border-2 border-muted-foreground/30 bg-muted/20 mb-8">
+        <div className="text-center">
+          <div className="flex justify-center items-center gap-3 mb-4">
+            <Printer className="h-8 w-8 text-muted-foreground" />
+            <h3 className="text-xl font-semibold text-muted-foreground">Print Setup</h3>
+            <span className="px-3 py-1 bg-gradient-elegant text-gradient-text border border-primary/30 rounded-full text-sm font-medium">
+              Coming Soon
+            </span>
+          </div>
+          <p className="text-muted-foreground mb-6 max-w-2xl mx-auto">
+            Premium users will be able to order professionally printed books here. 
+            Choose from paperback and hardcover options, customize trim sizes, 
+            paper quality, and cover finishes. Get instant quotes and track your orders.
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div className="text-center p-3 rounded-lg bg-background/50">
+              <Book className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground font-medium">Paperback</p>
+              <p className="text-xs text-muted-foreground">Starting at $4.99</p>
+            </div>
+            <div className="text-center p-3 rounded-lg bg-background/50">
+              <Book className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground font-medium">Hardcover</p>
+              <p className="text-xs text-muted-foreground">Starting at $12.99</p>
+            </div>
+            <div className="text-center p-3 rounded-lg bg-background/50">
+              <Truck className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground font-medium">Fast Shipping</p>
+              <p className="text-xs text-muted-foreground">7-10 business days</p>
+            </div>
+            <div className="text-center p-3 rounded-lg bg-background/50">
+              <Shield className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground font-medium">Quality Guarantee</p>
+              <p className="text-xs text-muted-foreground">Professional printing</p>
+            </div>
+          </div>
+          <Button disabled variant="outline" size="lg">
+            <Printer className="mr-2 h-4 w-4" />
+            Set Up Print Order
+          </Button>
+          <p className="text-xs text-muted-foreground mt-3">
+            Available with Premium subscription - Includes 1 free print credit per month
+          </p>
+        </div>
+      </Card>
 
       {/* Export History */}
       <Card className="bg-gradient-card border-0 shadow-soft">

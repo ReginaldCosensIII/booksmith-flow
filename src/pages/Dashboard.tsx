@@ -139,13 +139,21 @@ const Dashboard = () => {
 
         {/* Projects Section */}
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold">Your Projects</h2>
-          <Button className="shadow-soft" asChild>
-            <Link to="/project/new">
-              <Plus className="h-4 w-4 mr-2" />
-              New Project
-            </Link>
-          </Button>
+          <div>
+            <h2 className="text-2xl font-bold">Your Projects</h2>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 px-3 py-1 bg-gradient-elegant/10 border border-primary/20 rounded-full">
+              <div className="w-2 h-2 bg-primary rounded-full"></div>
+              <span className="text-sm font-medium text-primary">Plan: Free</span>
+            </div>
+            <Button className="shadow-soft" asChild>
+              <Link to="/project/new">
+                <Plus className="h-4 w-4 mr-2" />
+                New Project
+              </Link>
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
