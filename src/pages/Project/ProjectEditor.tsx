@@ -44,6 +44,21 @@ const ProjectEditor = () => {
     const loadChapters = async () => {
       if (!projectId) return;
 
+      // Validate UUID format
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(projectId)) {
+        toast({
+          title: "Invalid Project",
+          description: "This project doesn't exist. Redirecting to dashboard...",
+          variant: "destructive",
+        });
+        // Redirect to dashboard after a brief delay
+        setTimeout(() => {
+          window.location.href = '/dashboard';
+        }, 2000);
+        return;
+      }
+
       try {
         setLoading(true);
         const data = await chaptersService.getChaptersByProject(projectId);
@@ -52,14 +67,22 @@ const ProjectEditor = () => {
         if (data.length > 0) {
           setCurrentContent(data[0].content || "");
           setWordCount(data[0].word_count || 0);
+        } else {
+          // No chapters exist, show empty state
+          setCurrentContent("");
+          setWordCount(0);
         }
       } catch (error) {
+        console.error('Failed to load chapters:', error);
         toast({
           title: "Error",
-          description: "Failed to load chapters. Please try again.",
+          description: "Failed to load chapters. This project may not exist or you don't have access to it.",
           variant: "destructive",
         });
-        console.error('Failed to load chapters:', error);
+        // Redirect to dashboard after error
+        setTimeout(() => {
+          window.location.href = '/dashboard';
+        }, 3000);
       } finally {
         setLoading(false);
       }
@@ -246,7 +269,7 @@ const ProjectEditor = () => {
               <div className="flex items-center justify-center h-full">
                 <div className="text-muted-foreground">Loading chapters...</div>
               </div>
-            ) : currentChapter ? (
+            ) : chapters.length > 0 && currentChapter ? (
               <RichTextEditor
                 content={currentContent}
                 onChange={handleContentChange}
@@ -254,6 +277,23 @@ const ProjectEditor = () => {
                 placeholder="Start writing your story..."
                 className="h-full border-0"
               />
+            ) : chapters.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full space-y-4">
+                <div className="text-muted-foreground text-center">
+                  <h3 className="text-lg font-medium mb-2">No chapters yet</h3>
+                  <p>This project doesn't have any chapters. Create your first chapter to start writing!</p>
+                </div>
+                <Button onClick={() => {
+                  // TODO: Implement create chapter functionality
+                  toast({
+                    title: "Coming Soon",
+                    description: "Chapter creation feature will be available soon!",
+                  });
+                }}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create First Chapter
+                </Button>
+              </div>
             ) : (
               <div className="flex items-center justify-center h-full">
                 <div className="text-muted-foreground">No chapters found</div>
