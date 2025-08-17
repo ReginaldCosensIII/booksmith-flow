@@ -33,6 +33,8 @@ const ChapterManager = ({
   const [isCreating, setIsCreating] = useState(false);
   const [newChapterTitle, setNewChapterTitle] = useState("");
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingChapter, setEditingChapter] = useState<{ index: number; title: string } | null>(null);
 
   const handleCreateChapter = async () => {
     if (!newChapterTitle.trim()) {
@@ -81,6 +83,7 @@ const ChapterManager = ({
       });
 
       setNewChapterTitle("");
+      setIsDialogOpen(false);
     } catch (error) {
       console.error('Failed to create chapter:', error);
       
@@ -206,6 +209,48 @@ const ChapterManager = ({
     setDraggedIndex(null);
   };
 
+  const handleRenameChapter = async (chapterIndex: number, newTitle: string) => {
+    if (!newTitle.trim()) {
+      toast({
+        title: "Error",
+        description: "Chapter title cannot be empty",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const chapter = chapters[chapterIndex];
+    const originalTitle = chapter.title;
+    
+    // Optimistic update
+    const optimisticChapters = chapters.map((ch, index) => 
+      index === chapterIndex ? { ...ch, title: newTitle.trim() } : ch
+    );
+    onChaptersUpdate(optimisticChapters);
+
+    try {
+      await chaptersService.updateChapter(chapter.id, { title: newTitle.trim() });
+      
+      toast({
+        title: "Success",
+        description: `Chapter renamed to "${newTitle}"`,
+      });
+      
+      setEditingChapter(null);
+    } catch (error) {
+      console.error('Failed to rename chapter:', error);
+      
+      // Rollback optimistic update
+      onChaptersUpdate(chapters);
+      
+      toast({
+        title: "Error",
+        description: "Failed to rename chapter. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <Card className="bg-gradient-card border-0 shadow-soft">
       <CardHeader className="pb-3">
@@ -214,7 +259,7 @@ const ChapterManager = ({
             <BookOpen className="h-5 w-5" />
             Chapters ({chapters.length})
           </CardTitle>
-          <Dialog>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button size="sm">
                 <Plus className="h-4 w-4 mr-2" />
@@ -239,7 +284,10 @@ const ChapterManager = ({
                 <div className="flex justify-end gap-2">
                   <Button
                     variant="outline"
-                    onClick={() => setNewChapterTitle("")}
+                    onClick={() => {
+                      setNewChapterTitle("");
+                      setIsDialogOpen(false);
+                    }}
                   >
                     Cancel
                   </Button>
@@ -267,27 +315,63 @@ const ChapterManager = ({
               index === currentChapterIndex
                 ? "border-primary bg-primary/5"
                 : "border-muted hover:bg-muted/50"
-            } ${draggedIndex === index ? "opacity-50" : ""}`}
+            } ${draggedIndex === index ? "opacity-50" : ""} group`}
             onClick={() => onChapterSelect(index)}
           >
             <GripVertical className="h-4 w-4 text-muted-foreground cursor-grab" />
             <div className="flex-1 min-w-0">
-              <h4 className="font-medium truncate">{chapter.title}</h4>
+              {editingChapter?.index === index ? (
+                <input
+                  type="text"
+                  value={editingChapter.title}
+                  onChange={(e) => setEditingChapter({ ...editingChapter, title: e.target.value })}
+                  onBlur={() => handleRenameChapter(index, editingChapter.title)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleRenameChapter(index, editingChapter.title);
+                    } else if (e.key === 'Escape') {
+                      setEditingChapter(null);
+                    }
+                  }}
+                  className="font-medium bg-transparent border-none outline-none focus:ring-0 p-0 w-full"
+                  autoFocus
+                />
+              ) : (
+                <h4 
+                  className="font-medium truncate cursor-pointer hover:text-primary transition-colors"
+                  onDoubleClick={() => setEditingChapter({ index, title: chapter.title })}
+                >
+                  {chapter.title}
+                </h4>
+              )}
               <p className="text-sm text-muted-foreground">
                 {chapter.word_count?.toLocaleString() || 0} words
               </p>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDeleteChapter(index);
-              }}
-              className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            <div className="flex gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditingChapter({ index, title: chapter.title });
+                }}
+                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <Edit3 className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteChapter(index);
+                }}
+                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         ))}
         

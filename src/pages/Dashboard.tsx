@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -19,6 +19,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { projectsService, type Project } from "@/services/projects";
 import { useOptimisticUpdate } from "@/hooks/useOptimisticUpdate";
+import ProjectCardEditor from "@/components/Project/ProjectCardEditor";
 
 interface ProjectWithStats extends Project {
   wordCount: number;
@@ -117,6 +118,12 @@ const Dashboard = () => {
       projectId
     );
   };
+
+  const handleTitleUpdate = useCallback((projectId: string, newTitle: string) => {
+    setProjects(prev => prev.map(project => 
+      project.id === projectId ? { ...project, title: newTitle } : project
+    ));
+  }, []);
 
   const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString);
@@ -268,8 +275,13 @@ const Dashboard = () => {
                       </Button>
                     </div>
                   </div>
-                  <div>
-                    <CardTitle className="text-lg leading-tight">{project.title}</CardTitle>
+                  <div className="flex-1">
+                    <ProjectCardEditor
+                      projectId={project.id}
+                      title={project.title}
+                      onTitleUpdate={(newTitle) => handleTitleUpdate(project.id, newTitle)}
+                      className="mb-1"
+                    />
                     <p className="text-sm text-muted-foreground">{project.genre || "No genre"}</p>
                   </div>
                 </CardHeader>

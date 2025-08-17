@@ -16,6 +16,7 @@ import {
 import { Link, useParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { projectsService, type Project } from "@/services/projects";
+import ProjectTitleEditor from "@/components/Project/ProjectTitleEditor";
 
 const ProjectOverview = () => {
   const { id } = useParams();
@@ -65,6 +66,12 @@ const ProjectOverview = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleTitleUpdate = (newTitle: string) => {
+    if (project) {
+      setProject({ ...project, title: newTitle });
     }
   };
 
@@ -126,7 +133,11 @@ const ProjectOverview = () => {
       {/* Project Header */}
       <div className="space-y-4">
         <div>
-          <h1 className="text-3xl font-bold">{project.title}</h1>
+          <ProjectTitleEditor
+            projectId={project.id}
+            title={project.title}
+            onTitleUpdate={handleTitleUpdate}
+          />
           <p className="text-muted-foreground">
             {project.genre || "No genre"} • Created {new Date(project.created_at).toLocaleDateString()}
           </p>
