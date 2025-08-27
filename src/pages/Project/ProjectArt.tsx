@@ -5,9 +5,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Palette, Sparkles, Download, RefreshCw, Image } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { imageGenerationService, GeneratedImage } from "@/services/imageGeneration";
+import { assetsService } from "@/services/assets";
+import { projectsService } from "@/services/projects";
 import { useParams } from "react-router-dom";
 
 const ProjectArt = () => {
@@ -17,6 +19,29 @@ const ProjectArt = () => {
   const [selectedStyle, setSelectedStyle] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedCovers, setGeneratedCovers] = useState<GeneratedImage[]>([]);
+
+  // Load existing covers when component mounts
+  useEffect(() => {
+    const loadExistingCovers = async () => {
+      if (!projectId) return;
+      
+      try {
+        const assets = await assetsService.getProjectAssets(projectId, 'cover');
+        const covers: GeneratedImage[] = assets.map(asset => ({
+          success: true,
+          imageUrl: asset.url,
+          prompt: asset.prompt || '',
+          style: 'fantasy', // Default style since we don't store this yet
+          fileName: `cover_${asset.id}`
+        }));
+        setGeneratedCovers(covers);
+      } catch (error) {
+        console.error('Failed to load existing covers:', error);
+      }
+    };
+
+    loadExistingCovers();
+  }, [projectId]);
 
   const artStyles = [
     { value: "fantasy", label: "Fantasy", description: "Mystical and magical themes" },
@@ -46,6 +71,16 @@ const ProjectArt = () => {
         style: selectedStyle,
         projectId
       });
+
+      // Save the generated cover to the database
+      if (projectId) {
+        await assetsService.createAsset({
+          project_id: projectId,
+          type: 'cover',
+          url: result.imageUrl,
+          prompt: result.prompt
+        });
+      }
 
       setGeneratedCovers(prev => [result, ...prev]);
       
@@ -175,11 +210,25 @@ const ProjectArt = () => {
                       <Button 
                         size="sm" 
                         variant="secondary"
-                        onClick={() => {
-                          toast({
-                            title: "Cover Set!",
-                            description: "This cover is now your project's main cover."
-                          });
+                        onClick={async () => {
+                          if (!projectId) return;
+                          
+                          try {
+                            await projectsService.updateProject(projectId, {
+                              cover_image_url: cover.imageUrl
+                            });
+                            
+                            toast({
+                              title: "Cover Set!",
+                              description: "This cover is now your project's main cover."
+                            });
+                          } catch (error) {
+                            toast({
+                              title: "Failed to Set Cover",
+                              description: "Could not save this as your project cover.",
+                              variant: "destructive"
+                            });
+                          }
                         }}
                       >
                         <Download className="h-4 w-4 mr-1" />
