@@ -113,6 +113,7 @@ const ProjectArt = () => {
   }
 
   const handleImageClick = (imageUrl: string) => {
+    console.log('Image clicked:', imageUrl);
     setSelectedImageUrl(imageUrl);
     setIsFullscreenOpen(true);
   };
@@ -238,30 +239,36 @@ const ProjectArt = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                      {generated.map((item, index) => (
                        <div key={index} className="group relative">
-                         <div className="aspect-[2/3] rounded-lg overflow-hidden bg-gradient-to-br from-primary/20 to-accent/20 border-2 border-dashed border-muted-foreground/20 cursor-pointer hover:scale-105 transition-transform">
+                         <div 
+                           className="aspect-[2/3] rounded-lg overflow-hidden bg-gradient-to-br from-primary/20 to-accent/20 border-2 border-dashed border-muted-foreground/20 cursor-pointer hover:scale-105 transition-transform"
+                           onClick={() => handleImageClick(item.url || item.dataUrl || '')}
+                         >
                            <img 
                              src={item.url || item.dataUrl} 
                              alt="Generated cover"
                              className="w-full h-full object-cover"
-                             onClick={() => handleImageClick(item.url || item.dataUrl || '')}
                            />
                            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                              <div className="bg-black/50 rounded-full p-1">
                                <Maximize2 className="h-4 w-4 text-white" />
                              </div>
                            </div>
-                        </div>
+                         </div>
                          
-                         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-                          <Button 
-                            size="sm" 
-                            variant="secondary"
-                            onClick={() => handleSave(item)}
-                          >
-                            Save
-                          </Button>
-                        </div>
-                      </div>
+                         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center pointer-events-none">
+                           <Button 
+                             size="sm" 
+                             variant="secondary"
+                             className="pointer-events-auto"
+                             onClick={(e) => {
+                               e.stopPropagation();
+                               handleSave(item);
+                             }}
+                           >
+                             Save
+                           </Button>
+                         </div>
+                       </div>
                     ))}
                   </div>
                 </div>
@@ -273,52 +280,58 @@ const ProjectArt = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                      {savedCovers.map((cover) => (
                        <div key={cover.id} className="group relative">
-                         <div className="aspect-[2/3] rounded-lg overflow-hidden bg-gradient-to-br from-primary/20 to-accent/20 border-2 border-dashed border-muted-foreground/20 cursor-pointer hover:scale-105 transition-transform">
+                         <div 
+                           className="aspect-[2/3] rounded-lg overflow-hidden bg-gradient-to-br from-primary/20 to-accent/20 border-2 border-dashed border-muted-foreground/20 cursor-pointer hover:scale-105 transition-transform"
+                           onClick={() => handleImageClick(cover.url)}
+                         >
                            <img 
                              src={cover.url} 
                              alt={`Saved cover: ${cover.prompt || 'Generated cover'}`}
                              className="w-full h-full object-cover"
-                             onClick={() => handleImageClick(cover.url)}
                            />
                            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                              <div className="bg-black/50 rounded-full p-1">
                                <Maximize2 className="h-4 w-4 text-white" />
                              </div>
                            </div>
-                        </div>
+                         </div>
                          
-                         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
-                          <Button 
-                            size="sm" 
-                            variant="secondary"
-                            onClick={async () => {
-                              if (!projectId) return;
-                              
+                         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2 pointer-events-none">
+                           <Button 
+                             size="sm" 
+                             variant="secondary"
+                             className="pointer-events-auto"
+                             onClick={async (e) => {
+                               e.stopPropagation();
+                               if (!projectId) return;
+                               
                                try {
-                                await projectsService.updateProject(projectId, {
-                                  cover_image_url: cover.url
-                                });
-                                
-                                toast({
-                                  title: "Cover Set!",
-                                  description: "This cover is now your project's main cover."
-                                });
-                              } catch (error) {
-                                toast({
-                                  title: "Failed to Set Cover",
-                                  description: "Could not save this as your project cover.",
-                                  variant: "destructive"
-                                });
-                              }
-                            }}
-                          >
-                            <Download className="h-4 w-4 mr-1" />
-                            Use Cover
-                          </Button>
+                                 await projectsService.updateProject(projectId, {
+                                   cover_image_url: cover.url
+                                 });
+                                 
+                                 toast({
+                                   title: "Cover Set!",
+                                   description: "This cover is now your project's main cover."
+                                 });
+                               } catch (error) {
+                                 toast({
+                                   title: "Failed to Set Cover",
+                                   description: "Could not save this as your project cover.",
+                                   variant: "destructive"
+                                 });
+                               }
+                             }}
+                           >
+                             <Download className="h-4 w-4 mr-1" />
+                             Use Cover
+                           </Button>
                            <Button 
                              size="sm" 
                              variant="outline"
-                             onClick={() => {
+                             className="pointer-events-auto"
+                             onClick={(e) => {
+                               e.stopPropagation();
                                if (cover.prompt) {
                                  setCoverPrompt(cover.prompt);
                                  // Scroll to the prompt textarea
@@ -341,7 +354,7 @@ const ProjectArt = () => {
                              <RefreshCw className="h-4 w-4 mr-1" />
                              Remix
                            </Button>
-                        </div>
+                         </div>
                         
                         <div className="mt-2">
                           <p className="text-sm font-medium line-clamp-2">{cover.prompt || 'Generated cover'}</p>
