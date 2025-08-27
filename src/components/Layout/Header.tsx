@@ -1,6 +1,14 @@
 import { Button } from "@/components/ui/button";
-import { PenTool, Menu, User } from "lucide-react";
+import { PenTool, Menu, User, LogOut } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface HeaderProps {
   onMobileMenuToggle?: () => void;
@@ -9,6 +17,7 @@ interface HeaderProps {
 
 const Header = ({ onMobileMenuToggle, showMobileToggle = false }: HeaderProps) => {
   const location = useLocation();
+  const { user, signOut } = useAuth();
   const isAuthPage = location.pathname.startsWith('/auth');
   const isLanding = location.pathname === '/';
 
@@ -51,7 +60,7 @@ const Header = ({ onMobileMenuToggle, showMobileToggle = false }: HeaderProps) =
         </nav>
 
         <div className="flex items-center gap-3">
-          {isLanding ? (
+          {!user ? (
             <>
               <Button variant="ghost" asChild className="hidden sm:inline-flex">
                 <Link to="/auth/login">Sign In</Link>
@@ -61,9 +70,23 @@ const Header = ({ onMobileMenuToggle, showMobileToggle = false }: HeaderProps) =
               </Button>
             </>
           ) : (
-            <Button variant="ghost" size="icon">
-              <User className="h-5 w-5" />
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <User className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem asChild>
+                  <Link to="/dashboard">Dashboard</Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={signOut}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Sign Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
       </div>
