@@ -256,7 +256,15 @@ const Dashboard = () => {
               <Card key={project.id} className="group hover:shadow-elegant transition-all duration-300 border-0 bg-gradient-card">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
-                    <div className={`w-12 h-16 rounded-lg bg-gradient-to-br ${project.coverColor} shadow-sm`} />
+                    <div className={`w-12 h-16 rounded-lg shadow-sm overflow-hidden ${project.cover_image_url ? '' : `bg-gradient-to-br ${project.coverColor}`}`}>
+                      {project.cover_image_url ? (
+                        <img 
+                          src={project.cover_image_url} 
+                          alt={`${project.title} cover`}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : null}
+                    </div>
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button variant="ghost" size="icon" asChild>
                         <Link to={`/project/${project.id}`}>
