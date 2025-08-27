@@ -24,6 +24,7 @@ import { useLocalBackup } from "@/hooks/useLocalBackup";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { chaptersService, type Chapter } from "@/services/chapters";
 import { useAuth } from "@/hooks/useAuth";
+import AIAssistantPanel from "@/components/AI/AIAssistantPanel";
 import ChapterManager from "@/components/Project/ChapterManager";
 
 const ProjectEditor = () => {
@@ -202,6 +203,13 @@ const ProjectEditor = () => {
     });
   };
 
+  // Handle AI content generation
+  const handleContentGenerated = (content: string) => {
+    const newContent = currentContent + "\n\n" + content;
+    setCurrentContent(newContent);
+    handleContentChange(newContent);
+  };
+
   return (
     <div className={`flex h-screen ${isFullscreen ? 'fixed inset-0 z-50 bg-background' : 'relative'}`}>
       {/* Chapter Sidebar */}
@@ -302,52 +310,12 @@ const ProjectEditor = () => {
 
           {/* AI Assistant Panel */}
           {aiAssistantOpen && (
-            <div className="w-80 border-l bg-muted/30 p-4">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="p-2 bg-primary/10 rounded-lg">
-                  <Bot className="h-5 w-5 text-primary" />
-                </div>
-                <h3 className="font-semibold">AI Writing Assistant</h3>
-              </div>
-              
-              <div className="space-y-3">
-                {aiSuggestions.map((suggestion) => {
-                  const Icon = suggestion.icon;
-                  return (
-                    <Card 
-                      key={suggestion.type}
-                      className="cursor-pointer hover:shadow-soft transition-all bg-gradient-card border-0"
-                      onClick={() => handleAiAssist(suggestion.title)}
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex items-start gap-3">
-                          <div className="p-2 bg-primary/10 rounded-lg">
-                            <Icon className="h-4 w-4 text-primary" />
-                          </div>
-                          <div>
-                            <h4 className="font-medium text-sm mb-1">{suggestion.title}</h4>
-                            <p className="text-xs text-muted-foreground">{suggestion.description}</p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-              
-              <Separator className="my-4" />
-              
-              <div className="space-y-2">
-                <h4 className="font-medium text-sm">Writing Goals</h4>
-                <div className="p-3 bg-accent/10 rounded-lg">
-                  <div className="text-sm font-medium mb-1">Daily Target</div>
-                  <div className="text-xs text-muted-foreground">1,000 words</div>
-                  <div className="w-full bg-accent/20 rounded-full h-2 mt-2">
-                    <div className="bg-accent h-2 rounded-full" style={{ width: '60%' }} />
-                  </div>
-                </div>
-              </div>
-            </div>
+            <AIAssistantPanel
+              currentContent={currentContent}
+              chapterTitle={currentChapter?.title}
+              projectGenre={undefined} // TODO: Add project genre to project data
+              onContentGenerated={handleContentGenerated}
+            />
           )}
         </div>
 

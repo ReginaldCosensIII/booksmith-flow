@@ -17,6 +17,7 @@ import ProjectCharacters from "./pages/Project/ProjectCharacters";
 import ProjectWorldbuilding from "./pages/Project/ProjectWorldbuilding";
 import ProjectArt from "./pages/Project/ProjectArt";
 import ProjectExport from "./pages/Project/ProjectExport";
+import TestingDashboard from "./pages/TestingDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,6 +33,7 @@ const App = () => (
             <Route path="/" element={<AppLayout />}>
               <Route index element={<Landing />} />
               <Route path="dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="testing" element={<TestingDashboard />} />
               <Route path="project/new" element={<ProtectedRoute><ProjectNew /></ProtectedRoute>} />
               <Route path="project/:id" element={<ProtectedRoute><ProjectOverview /></ProtectedRoute>} />
               <Route path="project/:id/editor" element={<ProtectedRoute><ProjectEditor /></ProtectedRoute>} />
