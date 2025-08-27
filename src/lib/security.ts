@@ -80,12 +80,28 @@ export const securityHeaders = {
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
 } as const;
 
-// Log security events (stub for future monitoring integration)
+// Log security events with enhanced monitoring
 export function logSecurityEvent(event: string, details: Record<string, any> = {}) {
   if (process.env.NODE_ENV === 'development') {
     console.warn(`[SECURITY] ${event}:`, details);
   }
-  // In production, this would send to a monitoring service
+  
+  // Send to monitoring service
+  try {
+    // Dynamic import to avoid circular dependencies
+    import('@/lib/monitoring').then(({ reportSecurityIncident }) => {
+      // Map events to incident types
+      if (event.includes('rate_limit')) {
+        reportSecurityIncident('rate_limit', { event, ...details });
+      } else if (event.includes('suspicious') || event.includes('long_session')) {
+        reportSecurityIncident('suspicious_activity', { event, ...details });
+      } else if (event.includes('auth_failure')) {
+        reportSecurityIncident('auth_failure', { event, ...details });
+      }
+    });
+  } catch (error) {
+    console.error('Failed to report security incident:', error);
+  }
 }
 
 // Sanitize user content for safe display
