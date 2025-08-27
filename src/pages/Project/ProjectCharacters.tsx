@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -7,45 +8,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, User, Edit, Trash2, Users } from "lucide-react";
-
-interface Character {
-  id: string;
-  name: string;
-  description: string;
-  role: string;
-  age?: number;
-  appearance: string;
-  personality: string;
-  background: string;
-  relationships: string[];
-  avatar?: string;
-}
+import { useToast } from "@/hooks/use-toast";
+import { charactersService, type Character } from "@/services/characters";
+import { useOptimisticUpdate } from "@/hooks/useOptimisticUpdate";
 
 const ProjectCharacters = () => {
-  const [characters, setCharacters] = useState<Character[]>([
-    {
-      id: "1",
-      name: "Lyra Shadowmend",
-      description: "A skilled mage with the ability to manipulate shadows and light.",
-      role: "Protagonist",
-      age: 24,
-      appearance: "Tall with raven-black hair and emerald eyes. Often wears dark robes with silver accents.",
-      personality: "Determined and brave, but struggles with self-doubt. Has a dry sense of humor.",
-      background: "Raised in the Academy of Mystic Arts after her village was destroyed by dark forces.",
-      relationships: ["Kael Stormwind", "Elder Thorne"]
-    },
-    {
-      id: "2",
-      name: "Kael Stormwind", 
-      description: "A dragon rider and Lyra's closest ally.",
-      role: "Supporting Character",
-      age: 26,
-      appearance: "Muscular build with golden hair and storm-gray eyes. Bears scars from dragon battles.",
-      personality: "Loyal and protective, with a fierce temper when his friends are threatened.",
-      background: "Last of the Dragon Riders, bonded with the storm dragon Tempest.",
-      relationships: ["Lyra Shadowmend", "Tempest"]
-    }
-  ]);
+  const { id: projectId } = useParams();
+  const { toast } = useToast();
+  const [characters, setCharacters] = useState<Character[]>([]);
+  const [loading, setLoading] = useState(true);
   
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -53,23 +24,47 @@ const ProjectCharacters = () => {
 
   const [formData, setFormData] = useState({
     name: "",
-    description: "",
     role: "",
-    age: "",
     appearance: "",
-    personality: "",
-    background: ""
+    goals: "",
+    backstory: "",
+    relationships: "",
+    notes: ""
   });
+
+  // Load characters on mount
+  useEffect(() => {
+    const loadCharacters = async () => {
+      if (!projectId) return;
+
+      try {
+        setLoading(true);
+        const data = await charactersService.getCharactersByProject(projectId);
+        setCharacters(data);
+      } catch (error) {
+        console.error('Failed to load characters:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load characters. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadCharacters();
+  }, [projectId, toast]);
 
   const handleAddCharacter = () => {
     setFormData({
       name: "",
-      description: "",
       role: "",
-      age: "",
       appearance: "",
-      personality: "",
-      background: ""
+      goals: "",
+      backstory: "",
+      relationships: "",
+      notes: ""
     });
     setIsEditing(false);
     setIsDialogOpen(true);
@@ -78,41 +73,135 @@ const ProjectCharacters = () => {
   const handleEditCharacter = (character: Character) => {
     setFormData({
       name: character.name,
-      description: character.description,
-      role: character.role,
-      age: character.age?.toString() || "",
-      appearance: character.appearance,
-      personality: character.personality,
-      background: character.background
+      role: character.role || "",
+      appearance: character.appearance || "",
+      goals: character.goals || "",
+      backstory: character.backstory || "",
+      relationships: character.relationships || "",
+      notes: character.notes || ""
     });
     setSelectedCharacter(character);
     setIsEditing(true);
     setIsDialogOpen(true);
   };
 
-  const handleSaveCharacter = () => {
-    const characterData: Character = {
-      id: selectedCharacter?.id || Date.now().toString(),
-      name: formData.name,
-      description: formData.description,
-      role: formData.role,
-      age: formData.age ? parseInt(formData.age) : undefined,
-      appearance: formData.appearance,
-      personality: formData.personality,
-      background: formData.background,
-      relationships: selectedCharacter?.relationships || []
-    };
+  // Optimistic updates for character operations
+  const { execute: createCharacterWithOptimism } = useOptimisticUpdate(
+    charactersService.createCharacter,
+    {
+      successMessage: "Character created successfully!",
+      errorMessage: "Failed to create character. Please try again.",
+    }
+  );
+
+  const { execute: updateCharacterWithOptimism } = useOptimisticUpdate(
+    charactersService.updateCharacter,
+    {
+      successMessage: "Character updated successfully!",
+      errorMessage: "Failed to update character. Please try again.",
+    }
+  );
+
+  const { execute: deleteCharacterWithOptimism } = useOptimisticUpdate(
+    charactersService.deleteCharacter,
+    {
+      successMessage: "Character deleted successfully!",
+      errorMessage: "Failed to delete character. Please try again.",
+    }
+  );
+
+  const handleSaveCharacter = async () => {
+    if (!projectId || !formData.name.trim()) {
+      toast({
+        title: "Error",
+        description: "Character name is required.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     if (isEditing && selectedCharacter) {
-      setCharacters(prev => prev.map(char => 
-        char.id === selectedCharacter.id ? characterData : char
-      ));
+      // Update existing character
+      const updatedData = {
+        name: formData.name,
+        role: formData.role,
+        appearance: formData.appearance,
+        goals: formData.goals,
+        backstory: formData.backstory,
+        relationships: formData.relationships,
+        notes: formData.notes
+      };
+
+      await updateCharacterWithOptimism(
+        () => {
+          setCharacters(prev => prev.map(char => 
+            char.id === selectedCharacter.id 
+              ? { ...char, ...updatedData }
+              : char
+          ));
+        },
+        () => {
+          setCharacters(prev => prev.map(char => 
+            char.id === selectedCharacter.id 
+              ? selectedCharacter
+              : char
+          ));
+        },
+        selectedCharacter.id,
+        updatedData
+      );
     } else {
-      setCharacters(prev => [...prev, characterData]);
+      // Create new character
+      const newCharacterData = {
+        project_id: projectId,
+        name: formData.name,
+        role: formData.role,
+        appearance: formData.appearance,
+        goals: formData.goals,
+        backstory: formData.backstory,
+        relationships: formData.relationships,
+        notes: formData.notes
+      };
+
+      const tempId = Date.now().toString();
+      const tempCharacter = {
+        ...newCharacterData,
+        id: tempId,
+        created_at: new Date().toISOString()
+      };
+
+      const result = await createCharacterWithOptimism(
+        () => {
+          setCharacters(prev => [...prev, tempCharacter]);
+        },
+        () => {
+          setCharacters(prev => prev.filter(char => char.id !== tempId));
+        },
+        newCharacterData
+      );
+
+      if (result) {
+        // Replace temp character with real one
+        setCharacters(prev => prev.map(char => 
+          char.id === tempId ? result : char
+        ));
+      }
     }
 
     setIsDialogOpen(false);
     setSelectedCharacter(null);
+  };
+
+  const handleDeleteCharacter = async (character: Character) => {
+    await deleteCharacterWithOptimism(
+      () => {
+        setCharacters(prev => prev.filter(char => char.id !== character.id));
+      },
+      () => {
+        setCharacters(prev => [...prev, character]);
+      },
+      character.id
+    );
   };
 
   const getRoleColor = (role: string) => {
@@ -138,18 +227,36 @@ const ProjectCharacters = () => {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {characters.map((character) => (
+      {loading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="text-muted-foreground">Loading characters...</div>
+        </div>
+      ) : characters.length === 0 ? (
+        <div className="flex flex-col items-center justify-center h-64 space-y-4">
+          <div className="p-4 bg-muted/10 rounded-full">
+            <Users className="h-8 w-8 text-muted-foreground" />
+          </div>
+          <div className="text-center">
+            <h3 className="text-lg font-medium mb-2">No characters yet</h3>
+            <p className="text-muted-foreground mb-4">Create your first character to start building your story's cast.</p>
+            <Button onClick={handleAddCharacter}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add First Character
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {characters.map((character) => (
           <Card key={character.id} className="group hover:shadow-elegant transition-all bg-gradient-card border-0">
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <Avatar className="h-12 w-12">
-                    <AvatarImage src={character.avatar} />
-                    <AvatarFallback>
-                      <User className="h-6 w-6" />
-                    </AvatarFallback>
-                  </Avatar>
+                   <Avatar className="h-12 w-12">
+                     <AvatarFallback>
+                       <User className="h-6 w-6" />
+                     </AvatarFallback>
+                   </Avatar>
                   <div>
                     <CardTitle className="text-lg">{character.name}</CardTitle>
                     <div className={`px-2 py-1 rounded-full text-xs font-medium ${getRoleColor(character.role)}`}>
@@ -166,62 +273,58 @@ const ProjectCharacters = () => {
                   >
                     <Edit className="h-4 w-4" />
                   </Button>
-                  <Button variant="ghost" size="icon">
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                   <Button 
+                     variant="ghost" 
+                     size="icon"
+                     onClick={() => handleDeleteCharacter(character)}
+                   >
+                     <Trash2 className="h-4 w-4" />
+                   </Button>
                 </div>
               </div>
             </CardHeader>
             
-            <CardContent className="space-y-3">
-              <p className="text-sm text-muted-foreground line-clamp-2">
-                {character.description}
-              </p>
-              
-              {character.age && (
-                <p className="text-sm">
-                  <span className="font-medium">Age:</span> {character.age}
-                </p>
-              )}
-              
-              <div className="space-y-2">
-                <h4 className="font-medium text-sm">Appearance</h4>
-                <p className="text-sm text-muted-foreground line-clamp-2">
-                  {character.appearance}
-                </p>
-              </div>
-              
-              <div className="space-y-2">
-                <h4 className="font-medium text-sm">Personality</h4>
-                <p className="text-sm text-muted-foreground line-clamp-2">
-                  {character.personality}
-                </p>
-              </div>
-              
-              {character.relationships.length > 0 && (
-                <div className="space-y-2">
-                  <h4 className="font-medium text-sm flex items-center gap-1">
-                    <Users className="h-4 w-4" />
-                    Relationships
-                  </h4>
-                  <div className="flex flex-wrap gap-1">
-                    {character.relationships.slice(0, 2).map((rel, index) => (
-                      <span key={index} className="px-2 py-1 bg-muted rounded-full text-xs">
-                        {rel}
-                      </span>
-                    ))}
-                    {character.relationships.length > 2 && (
-                      <span className="px-2 py-1 bg-muted rounded-full text-xs">
-                        +{character.relationships.length - 2} more
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+             <CardContent className="space-y-3">
+               {character.goals && (
+                 <p className="text-sm text-muted-foreground line-clamp-2">
+                   {character.goals}
+                 </p>
+               )}
+               
+               {character.appearance && (
+                 <div className="space-y-2">
+                   <h4 className="font-medium text-sm">Appearance</h4>
+                   <p className="text-sm text-muted-foreground line-clamp-2">
+                     {character.appearance}
+                   </p>
+                 </div>
+               )}
+               
+               {character.backstory && (
+                 <div className="space-y-2">
+                   <h4 className="font-medium text-sm">Background</h4>
+                   <p className="text-sm text-muted-foreground line-clamp-2">
+                     {character.backstory}
+                   </p>
+                 </div>
+               )}
+               
+               {character.relationships && character.relationships.trim() && (
+                 <div className="space-y-2">
+                   <h4 className="font-medium text-sm flex items-center gap-1">
+                     <Users className="h-4 w-4" />
+                     Relationships
+                   </h4>
+                   <p className="text-sm text-muted-foreground line-clamp-2">
+                     {character.relationships}
+                   </p>
+                 </div>
+               )}
+             </CardContent>
+           </Card>
+          ))}
+        </div>
+      )}
 
       {/* Character Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -258,26 +361,13 @@ const ProjectCharacters = () => {
               </div>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="age">Age (optional)</Label>
-                <Input
-                  id="age"
-                  type="number"
-                  value={formData.age}
-                  onChange={(e) => setFormData({ ...formData, age: e.target.value })}
-                  placeholder="Character age"
-                />
-              </div>
-            </div>
-            
             <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
+              <Label htmlFor="goals">Goals</Label>
               <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Brief description of the character"
+                id="goals"
+                value={formData.goals}
+                onChange={(e) => setFormData({ ...formData, goals: e.target.value })}
+                placeholder="Character's goals and motivations"
                 rows={2}
               />
             </div>
@@ -294,24 +384,35 @@ const ProjectCharacters = () => {
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="personality">Personality</Label>
+              <Label htmlFor="backstory">Background</Label>
               <Textarea
-                id="personality"
-                value={formData.personality}
-                onChange={(e) => setFormData({ ...formData, personality: e.target.value })}
-                placeholder="Personality traits, quirks, and mannerisms"
+                id="backstory"
+                value={formData.backstory}
+                onChange={(e) => setFormData({ ...formData, backstory: e.target.value })}
+                placeholder="Character's history, backstory, and background"
                 rows={3}
               />
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="background">Background</Label>
+              <Label htmlFor="relationships">Relationships</Label>
               <Textarea
-                id="background"
-                value={formData.background}
-                onChange={(e) => setFormData({ ...formData, background: e.target.value })}
-                placeholder="Character's history, backstory, and motivations"
-                rows={4}
+                id="relationships"
+                value={formData.relationships}
+                onChange={(e) => setFormData({ ...formData, relationships: e.target.value })}
+                placeholder="Key relationships with other characters"
+                rows={2}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="notes">Additional Notes</Label>
+              <Textarea
+                id="notes"
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                placeholder="Any additional notes about this character"
+                rows={3}
               />
             </div>
           </div>
