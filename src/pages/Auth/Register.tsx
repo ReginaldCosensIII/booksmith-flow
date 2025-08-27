@@ -10,6 +10,8 @@ import { Link } from "react-router-dom";
 import { PenTool, Mail, Lock, Eye, EyeOff, User } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { PasswordStrength } from "@/components/ui/password-strength";
+import { validateEmail, validatePassword, validateDisplayName, sanitizeInput } from "@/lib/validation";
 
 const Register = () => {
   const { user, loading, signUp } = useAuth();
@@ -35,10 +37,31 @@ const Register = () => {
       return;
     }
     
-    if (!formData.email || !formData.password) return;
+    // Validate display name
+    const nameValidation = validateDisplayName(formData.name);
+    if (!nameValidation.isValid) {
+      toast.error(nameValidation.error);
+      return;
+    }
+    
+    // Validate email
+    const emailValidation = validateEmail(formData.email);
+    if (!emailValidation.isValid) {
+      toast.error(emailValidation.error);
+      return;
+    }
+    
+    // Validate password
+    const passwordValidation = validatePassword(formData.password);
+    if (!passwordValidation.isValid) {
+      toast.error("Password does not meet security requirements");
+      return;
+    }
     
     setIsLoading(true);
-    await signUp(formData.email, formData.password, formData.name);
+    // Sanitize name before sending
+    const sanitizedName = sanitizeInput(formData.name);
+    await signUp(formData.email, formData.password, sanitizedName);
     setIsLoading(false);
   };
 
@@ -121,6 +144,7 @@ const Register = () => {
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     required
+                    minLength={8}
                   />
                   <Button
                     type="button"
@@ -136,6 +160,7 @@ const Register = () => {
                     )}
                   </Button>
                 </div>
+                <PasswordStrength password={formData.password} />
               </div>
               
               <div className="flex items-start space-x-3">

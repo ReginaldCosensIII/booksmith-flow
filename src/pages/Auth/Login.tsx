@@ -8,6 +8,8 @@ import { Separator } from "@/components/ui/separator";
 import { Link } from "react-router-dom";
 import { PenTool, Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { validateEmail } from "@/lib/validation";
+import { toast } from "sonner";
 
 const Login = () => {
   const { user, loading, signIn } = useAuth();
@@ -25,7 +27,18 @@ const Login = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.email || !formData.password) return;
+    
+    // Validate email format
+    const emailValidation = validateEmail(formData.email);
+    if (!emailValidation.isValid) {
+      toast.error(emailValidation.error);
+      return;
+    }
+    
+    if (!formData.password) {
+      toast.error("Password is required");
+      return;
+    }
     
     setIsLoading(true);
     await signIn(formData.email, formData.password);

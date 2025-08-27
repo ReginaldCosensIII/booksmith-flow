@@ -31,7 +31,12 @@ export const RichTextEditor = ({
 }: RichTextEditorProps) => {
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({
+        // Configure safe extensions only
+        dropcursor: {
+          color: 'hsl(var(--primary))',
+        },
+      }),
       CharacterCount,
     ],
     content,
@@ -44,6 +49,16 @@ export const RichTextEditor = ({
       attributes: {
         class: 'prose prose-sm sm:prose lg:prose-lg xl:prose-2xl mx-auto focus:outline-none min-h-full p-4',
         'aria-label': 'Rich text editor',
+        'data-testid': 'rich-text-editor',
+      },
+      // Prevent paste of potentially dangerous content
+      transformPastedHTML: (html) => {
+        // Strip dangerous tags and attributes
+        return html
+          .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+          .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
+          .replace(/on\w+\s*=\s*"[^"]*"/gi, '')
+          .replace(/javascript:/gi, '');
       },
     },
   });
