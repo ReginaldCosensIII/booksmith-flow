@@ -71,3 +71,28 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+
+## Environment & Secrets
+
+### Local Development Setup
+
+1. Copy the environment template:
+   ```sh
+   cp .env.example .env
+   ```
+
+2. Fill in your Supabase configuration values in `.env`:
+   - `VITE_SUPABASE_URL` - Your Supabase project URL
+   - `VITE_SUPABASE_ANON_KEY` - Your Supabase anon/public key
+   - `VITE_SUPABASE_PROJECT_ID` - Your Supabase project ID
+   - `VITE_SUPABASE_PUBLISHABLE_KEY` - Your Supabase publishable key
+
+### API Keys & Secrets
+
+**Important**: Private API keys (like `OPENAI_API_KEY`) should NEVER be stored in `.env` files or committed to the repository.
+
+For this project:
+- **Public keys** (Supabase anon key, project ID) → Store in `.env` for local development
+- **Private secrets** (OpenAI API key, etc.) → Store in Supabase Edge Function secrets
+
+Private secrets are managed through the Supabase dashboard and are automatically available to Edge Functions without being exposed to the client.
