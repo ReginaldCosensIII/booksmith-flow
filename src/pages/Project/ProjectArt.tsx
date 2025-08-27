@@ -19,7 +19,7 @@ const ProjectArt = () => {
   const [coverPrompt, setCoverPrompt] = useState("");
   const [selectedStyle, setSelectedStyle] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generated, setGenerated] = useState<Array<{ url?: string; dataUrl?: string }>>([]);
+  const [generated, setGenerated] = useState<Array<{ url?: string; dataUrl?: string; prompt?: string; style?: string }>>([]);
   const [savedCovers, setSavedCovers] = useState<AssetRecord[]>([]);
 
   // Load saved covers
@@ -59,7 +59,12 @@ const ProjectArt = () => {
         projectId
       });
 
-      setGenerated([{ url: result.imageUrl }]);
+      // Store the generation data with the result
+      setGenerated([{ 
+        url: result.imageUrl, 
+        prompt: coverPrompt,
+        style: selectedStyle
+      }]);
       
       toast({
         title: "Cover Generated!",
@@ -81,7 +86,7 @@ const ProjectArt = () => {
     }
   };
 
-  async function handleSave(item: { url?: string; dataUrl?: string }) {
+  async function handleSave(item: { url?: string; dataUrl?: string; prompt?: string; style?: string }) {
     try {
       if (!projectId) throw new Error("Missing project id.");
       const { data: sess } = await supabase.auth.getSession?.() ?? {};
@@ -94,7 +99,7 @@ const ProjectArt = () => {
         projectId,
         type: "cover",
         imageUrl: item.url,
-        prompt: coverPrompt || null
+        prompt: item.prompt || null
       });
       setSavedCovers((prev) => [saved, ...prev]);
       toast({ title: "Saved", description: "Cover added to your project." });
@@ -276,20 +281,32 @@ const ProjectArt = () => {
                             <Download className="h-4 w-4 mr-1" />
                             Use Cover
                           </Button>
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => {
-                              setCoverPrompt(cover.prompt || "");
-                              toast({
-                                title: "Prompt Loaded",
-                                description: "The original prompt has been loaded for remixing."
-                              });
-                            }}
-                          >
-                            <RefreshCw className="h-4 w-4 mr-1" />
-                            Remix
-                          </Button>
+                           <Button 
+                             size="sm" 
+                             variant="outline"
+                             onClick={() => {
+                               if (cover.prompt) {
+                                 setCoverPrompt(cover.prompt);
+                                 // Scroll to the prompt textarea
+                                 const promptElement = document.getElementById('prompt');
+                                 promptElement?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                 promptElement?.focus();
+                                 toast({
+                                   title: "Prompt Loaded",
+                                   description: "The original prompt has been loaded for remixing."
+                                 });
+                               } else {
+                                 toast({
+                                   title: "No Prompt",
+                                   description: "This cover doesn't have a saved prompt to remix.",
+                                   variant: "destructive"
+                                 });
+                               }
+                             }}
+                           >
+                             <RefreshCw className="h-4 w-4 mr-1" />
+                             Remix
+                           </Button>
                         </div>
                         
                         <div className="mt-2">
