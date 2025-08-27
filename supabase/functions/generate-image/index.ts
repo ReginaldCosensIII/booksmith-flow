@@ -119,13 +119,13 @@ serve(async (req) => {
       .from('covers')
       .getPublicUrl(fileName);
 
-    const imageUrl = publicUrlData.publicUrl;
-    console.log('Public URL generated:', imageUrl);
+    const publicImageUrl = publicUrlData.publicUrl;
+    console.log('Public URL generated:', publicImageUrl);
 
     return new Response(
       JSON.stringify({ 
         success: true,
-        imageUrl,
+        imageUrl: publicImageUrl,
         prompt,
         style,
         fileName
