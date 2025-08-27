@@ -59,12 +59,12 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-image-1',
+        model: 'dall-e-3',
         prompt: enhancedPrompt,
         n: 1,
-        size: '1024x1536',
-        quality: 'high',
-        output_format: 'png'
+        size: '1024x1024',
+        quality: 'hd',
+        response_format: 'url'
       }),
     });
 
@@ -77,21 +77,28 @@ serve(async (req) => {
     const data = await response.json();
     console.log('OpenAI response received successfully');
 
-    if (!data.data || !data.data[0] || !data.data[0].b64_json) {
+    if (!data.data || !data.data[0] || !data.data[0].url) {
       console.error('Invalid OpenAI response structure:', data);
       throw new Error('Invalid response from OpenAI');
     }
 
-    const base64Image = data.data[0].b64_json;
+    const imageUrl = data.data[0].url;
     
-    // Upload to Supabase Storage
-    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+    // Download the image from OpenAI's URL
+    console.log('Downloading image from OpenAI URL:', imageUrl);
+    const imageResponse = await fetch(imageUrl);
     
-    // Convert base64 to blob
-    const imageBuffer = Uint8Array.from(atob(base64Image), c => c.charCodeAt(0));
+    if (!imageResponse.ok) {
+      throw new Error(`Failed to download image: ${imageResponse.statusText}`);
+    }
+    
+    const imageBuffer = new Uint8Array(await imageResponse.arrayBuffer());
     const fileName = `cover_${Date.now()}_${Math.random().toString(36).substring(7)}.png`;
     
     console.log('Uploading image to storage:', fileName);
+    
+    // Upload to Supabase Storage
+    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
     
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('covers')
