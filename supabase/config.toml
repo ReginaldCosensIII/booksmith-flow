@@ -60,9 +60,3 @@ inspector_port = 8083
 
 [functions.generate-image]
 verify_jwt = false
-
-[functions.openai-text]
-verify_jwt = true
-
-[functions.openai-image]
-verify_jwt = true

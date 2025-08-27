@@ -26,7 +26,6 @@ import { chaptersService, type Chapter } from "@/services/chapters";
 import { useAuth } from "@/hooks/useAuth";
 import AIAssistantPanel from "@/components/AI/AIAssistantPanel";
 import ChapterManager from "@/components/Project/ChapterManager";
-import AICoach from "@/components/AICoach";
 
 const ProjectEditor = () => {
   const { id: projectId } = useParams();
@@ -311,24 +310,12 @@ const ProjectEditor = () => {
 
           {/* AI Assistant Panel */}
           {aiAssistantOpen && (
-            <div className="w-80 border-l bg-muted/30 p-4 overflow-y-auto space-y-6">
-              <AIAssistantPanel
-                currentContent={currentContent}
-                chapterTitle={currentChapter?.title}
-                projectGenre={undefined} // TODO: Add project genre to project data
-                onContentGenerated={handleContentGenerated}
-              />
-              
-              <div className="border-t pt-6">
-                <AICoach onResult={(text) => {
-                  // Optionally handle the AI coach result
-                  toast({
-                    title: "AI Coach Response",
-                    description: "Check the response below for writing suggestions."
-                  });
-                }} />
-              </div>
-            </div>
+            <AIAssistantPanel
+              currentContent={currentContent}
+              chapterTitle={currentChapter?.title}
+              projectGenre={undefined} // TODO: Add project genre to project data
+              onContentGenerated={handleContentGenerated}
+            />
           )}
         </div>
 

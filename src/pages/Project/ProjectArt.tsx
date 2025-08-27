@@ -5,21 +5,18 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Palette, Sparkles, Download, RefreshCw, Image } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { imageGenerationService, GeneratedImage } from "@/services/imageGeneration";
-import { assetsService, Asset } from "@/services/assets";
-import { generateCover } from "@/services/ai";
 import { useParams } from "react-router-dom";
 
 const ProjectArt = () => {
   const { toast } = useToast();
-  const { id: projectId } = useParams();
+  const { projectId } = useParams();
   const [coverPrompt, setCoverPrompt] = useState("");
   const [selectedStyle, setSelectedStyle] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedCovers, setGeneratedCovers] = useState<Asset[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [generatedCovers, setGeneratedCovers] = useState<GeneratedImage[]>([]);
 
   const artStyles = [
     { value: "fantasy", label: "Fantasy", description: "Mystical and magical themes" },
@@ -29,31 +26,6 @@ const ProjectArt = () => {
     { value: "literary", label: "Literary", description: "Artistic and sophisticated" },
     { value: "minimalist", label: "Minimalist", description: "Clean and simple design" }
   ];
-
-  // Load existing assets on mount
-  useEffect(() => {
-    const loadAssets = async () => {
-      if (!projectId) return;
-
-      try {
-        const assets = await assetsService.getAssetsByProject(projectId);
-        // Filter for cover type assets
-        const covers = assets.filter(asset => asset.type === 'cover');
-        setGeneratedCovers(covers);
-      } catch (error) {
-        console.error('Failed to load assets:', error);
-        toast({
-          title: "Error",
-          description: "Failed to load existing covers.",
-          variant: "destructive"
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadAssets();
-  }, [projectId, toast]);
 
 
   const handleGenerateCover = async () => {
@@ -66,43 +38,20 @@ const ProjectArt = () => {
       return;
     }
 
-    if (!projectId) {
-      toast({
-        title: "Error",
-        description: "Project ID is missing.",
-        variant: "destructive"
-      });
-      return;
-    }
-
     setIsGenerating(true);
     
     try {
-      // Generate the image using the new AI service
-      const stylePrompt = `${coverPrompt} in ${selectedStyle} style, book cover design, professional quality`;
-      const result = await generateCover({
-        prompt: stylePrompt,
-        size: "1024x1024",
-        quality: "hd"
+      const result = await imageGenerationService.generateCover({
+        prompt: coverPrompt,
+        style: selectedStyle,
+        projectId
       });
 
-      if (!result.images || result.images.length === 0) {
-        throw new Error('No images generated');
-      }
-
-      // Save the generated image to the database
-      const asset = await assetsService.createAsset({
-        project_id: projectId,
-        type: 'cover',
-        url: result.images[0], // Use the base64 image URL
-        prompt: coverPrompt
-      });
-
-      setGeneratedCovers(prev => [asset, ...prev]);
+      setGeneratedCovers(prev => [result, ...prev]);
       
       toast({
         title: "Cover Generated!",
-        description: "Your new book cover has been saved to the gallery."
+        description: "Your new book cover has been added to the gallery."
       });
       
       // Clear the form
@@ -211,75 +160,67 @@ const ProjectArt = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              {isLoading ? (
-                <div className="text-center py-12">
-                  <RefreshCw className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
-                  <p className="text-muted-foreground">Loading covers...</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                  {generatedCovers.map((cover, index) => (
-                    <div key={`${cover.id}-${index}`} className="group relative">
-                      <div className="aspect-[2/3] rounded-lg overflow-hidden bg-gradient-to-br from-primary/20 to-accent/20 border-2 border-dashed border-muted-foreground/20">
-                        <img 
-                          src={cover.url} 
-                          alt={`Generated cover: ${cover.prompt || 'Generated cover'}`}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      
-                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
-                        <Button 
-                          size="sm" 
-                          variant="secondary"
-                          onClick={() => {
-                            toast({
-                              title: "Cover Set!",
-                              description: "This cover is now your project's main cover."
-                            });
-                          }}
-                        >
-                          <Download className="h-4 w-4 mr-1" />
-                          Use Cover
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => {
-                            if (cover.prompt) {
-                              setCoverPrompt(cover.prompt);
-                              toast({
-                                title: "Prompt Loaded",
-                                description: "The original prompt has been loaded for remixing."
-                              });
-                            }
-                          }}
-                        >
-                          <RefreshCw className="h-4 w-4 mr-1" />
-                          Remix
-                        </Button>
-                      </div>
-                      
-                      <div className="mt-2">
-                        <p className="text-sm font-medium line-clamp-2">{cover.prompt || 'Generated cover'}</p>
-                        <p className="text-xs text-muted-foreground">Cover • {new Date(cover.created_at).toLocaleDateString()}</p>
-                      </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {generatedCovers.map((cover, index) => (
+                  <div key={`${cover.fileName}-${index}`} className="group relative">
+                    <div className="aspect-[2/3] rounded-lg overflow-hidden bg-gradient-to-br from-primary/20 to-accent/20 border-2 border-dashed border-muted-foreground/20">
+                      <img 
+                        src={cover.imageUrl} 
+                        alt={`Generated cover: ${cover.prompt}`}
+                        className="w-full h-full object-cover"
+                      />
                     </div>
-                  ))}
-                  
-                  {/* Placeholder for new generation */}
-                  {isGenerating && (
-                    <div className="aspect-[2/3] rounded-lg bg-gradient-to-br from-primary/10 to-accent/10 border-2 border-dashed border-primary/30 flex items-center justify-center">
-                      <div className="text-center">
-                        <RefreshCw className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
-                        <p className="text-sm text-muted-foreground">Generating...</p>
-                      </div>
+                    
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
+                      <Button 
+                        size="sm" 
+                        variant="secondary"
+                        onClick={() => {
+                          toast({
+                            title: "Cover Set!",
+                            description: "This cover is now your project's main cover."
+                          });
+                        }}
+                      >
+                        <Download className="h-4 w-4 mr-1" />
+                        Use Cover
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => {
+                          setCoverPrompt(cover.prompt);
+                          setSelectedStyle(cover.style);
+                          toast({
+                            title: "Prompt Loaded",
+                            description: "The original prompt has been loaded for remixing."
+                          });
+                        }}
+                      >
+                        <RefreshCw className="h-4 w-4 mr-1" />
+                        Remix
+                      </Button>
                     </div>
-                  )}
-                </div>
-              )}
+                    
+                    <div className="mt-2">
+                      <p className="text-sm font-medium line-clamp-2">{cover.prompt}</p>
+                      <p className="text-xs text-muted-foreground">{cover.style} Style</p>
+                    </div>
+                  </div>
+                ))}
+                
+                {/* Placeholder for new generation */}
+                {isGenerating && (
+                  <div className="aspect-[2/3] rounded-lg bg-gradient-to-br from-primary/10 to-accent/10 border-2 border-dashed border-primary/30 flex items-center justify-center">
+                    <div className="text-center">
+                      <RefreshCw className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
+                      <p className="text-sm text-muted-foreground">Generating...</p>
+                    </div>
+                  </div>
+                )}
+              </div>
               
-              {generatedCovers.length === 0 && !isGenerating && !isLoading && (
+              {generatedCovers.length === 0 && !isGenerating && (
                 <div className="text-center py-12">
                   <div className="p-4 bg-muted/30 rounded-full w-fit mx-auto mb-4">
                     <Image className="h-12 w-12 text-muted-foreground" />
