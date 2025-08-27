@@ -255,7 +255,7 @@ const ProjectArt = () => {
                             onClick={async () => {
                               if (!projectId) return;
                               
-                              try {
+                               try {
                                 await projectsService.updateProject(projectId, {
                                   cover_image_url: cover.url
                                 });
