@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.55.0';
 
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-const allowedOrigins = Deno.env.get('ALLOWED_ORIGINS')?.split(',') || [];
+const allowedOrigins = Deno.env.get('ALLOWED_ORIGINS')?.split(',').map(origin => origin.trim()) || [];
 const supabaseUrl = Deno.env.get('SUPABASE_URL');
 const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
 
@@ -26,6 +26,7 @@ function getCorsHeaders(origin: string | null): Record<string, string> {
     'Access-Control-Allow-Origin': isAllowedOrigin ? origin : 'null',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Vary': 'Origin'
   };
 }
 
@@ -35,7 +36,10 @@ serve(async (req) => {
 
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { 
+      status: 200,
+      headers: corsHeaders 
+    });
   }
 
   if (req.method !== 'POST') {
