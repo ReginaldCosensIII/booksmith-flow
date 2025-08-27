@@ -137,6 +137,45 @@ export type Database = {
           },
         ]
       }
+      exports: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_size: number
+          file_url: string
+          format: string
+          id: string
+          metadata: Json | null
+          project_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_size?: number
+          file_url?: string
+          format: string
+          id?: string
+          metadata?: Json | null
+          project_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_size?: number
+          file_url?: string
+          format?: string
+          id?: string
+          metadata?: Json | null
+          project_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       print_credits: {
         Row: {
           expires_at: string

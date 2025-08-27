@@ -20,13 +20,17 @@ import {
   Smartphone,
   ExternalLink
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { exportService, ExportRecord, ExportMetadata } from "@/services/export";
 
 const ProjectExport = () => {
   const { toast } = useToast();
+  const { projectId } = useParams<{ projectId: string }>();
   const [isExporting, setIsExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
+  const [recentExports, setRecentExports] = useState<ExportRecord[]>([]);
   
   const [metadata, setMetadata] = useState({
     title: "The Dragon's Echo",
@@ -94,7 +98,22 @@ const ProjectExport = () => {
     }
   ];
 
+  useEffect(() => {
+    if (projectId) {
+      loadRecentExports();
+    }
+  }, [projectId]);
+
+  const loadRecentExports = async () => {
+    if (!projectId) return;
+    
+    const exports = await exportService.getProjectExports(projectId);
+    setRecentExports(exports);
+  };
+
   const handleExport = async (format: string) => {
+    if (!projectId) return;
+    
     setIsExporting(true);
     setExportProgress(0);
     
@@ -104,15 +123,55 @@ const ProjectExport = () => {
         if (prev >= 100) {
           clearInterval(interval);
           setIsExporting(false);
-          toast({
-            title: "Export Complete!",
-            description: `Your book has been exported as ${format.toUpperCase()}.`
-          });
           return 100;
         }
         return prev + 10;
       });
     }, 200);
+
+    try {
+      const exportMetadata: ExportMetadata = {
+        title: metadata.title,
+        author: metadata.author,
+        description: metadata.description,
+        genre: metadata.genre,
+        isbn: metadata.isbn,
+        copyright: metadata.copyright,
+        language: metadata.language
+      };
+
+      const result = await exportService.createExport(projectId, format, exportMetadata);
+      
+      if (result.success) {
+        toast({
+          title: "Export Complete!",
+          description: `Your book has been exported as ${format.toUpperCase()}.`
+        });
+        // Reload exports list
+        loadRecentExports();
+      } else {
+        toast({
+          title: "Export Failed",
+          description: result.error || "Failed to export book",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Export Failed",
+        description: "An unexpected error occurred",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDownload = (fileUrl: string, fileName: string) => {
+    const link = document.createElement('a');
+    link.href = fileUrl;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const getStatusIcon = (status: string) => {
@@ -420,27 +479,41 @@ const ProjectExport = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {[
-              { format: 'PDF', date: '2 hours ago', size: '2.5 MB', status: 'completed' },
-              { format: 'EPUB', date: '1 day ago', size: '1.8 MB', status: 'completed' },
-              { format: 'DOCX', date: '3 days ago', size: '750 KB', status: 'completed' }
-            ].map((export_, index) => (
-              <div key={index} className="flex items-center justify-between p-3 border rounded-lg bg-background/30">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-muted rounded-lg">
-                    <FileText className="h-4 w-4" />
+            {recentExports.length > 0 ? (
+              recentExports.map((exportRecord) => (
+                <div key={exportRecord.id} className="flex items-center justify-between p-3 border rounded-lg bg-background/30">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-muted rounded-lg">
+                      <FileText className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="font-medium">{exportRecord.file_name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {exportService.formatDate(exportRecord.created_at)} • {exportService.formatFileSize(exportRecord.file_size)}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium">{metadata.title}.{export_.format.toLowerCase()}</p>
-                    <p className="text-sm text-muted-foreground">{export_.date} • {export_.size}</p>
+                  <div className="flex items-center gap-2">
+                    {getStatusIcon(exportRecord.status)}
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => handleDownload(exportRecord.file_url, exportRecord.file_name)}
+                      disabled={exportRecord.status !== 'completed'}
+                    >
+                      <Download className="h-4 w-4 mr-1" />
+                      Download
+                    </Button>
                   </div>
                 </div>
-                <Button variant="ghost" size="sm">
-                  <Download className="h-4 w-4 mr-1" />
-                  Download
-                </Button>
+              ))
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+                <p>No exports yet</p>
+                <p className="text-sm">Export your book to see downloads here</p>
               </div>
-            ))}
+            )}
           </div>
         </CardContent>
       </Card>

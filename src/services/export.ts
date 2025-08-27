@@ -24,18 +24,33 @@ export interface ExportMetadata {
 
 class ExportService {
   async getProjectExports(projectId: string): Promise<ExportRecord[]> {
-    const { data, error } = await supabase
-      .from('exports')
-      .select('*')
-      .eq('project_id', projectId)
-      .order('created_at', { ascending: false });
+    try {
+      // For now, use storage to list export files until types are updated
+      const { data: files, error } = await supabase.storage
+        .from('exports')
+        .list(projectId);
 
-    if (error) {
+      if (error || !files) {
+        console.error('Error fetching exports:', error);
+        return [];
+      }
+
+      // Transform storage files into export records
+      return files.map(file => ({
+        id: file.id || crypto.randomUUID(),
+        project_id: projectId,
+        format: file.name.split('.').pop() || 'txt',
+        file_name: file.name,
+        file_size: file.metadata?.size || 0,
+        file_url: supabase.storage.from('exports').getPublicUrl(`${projectId}/${file.name}`).data.publicUrl,
+        metadata: file.metadata || {},
+        created_at: file.created_at || new Date().toISOString(),
+        status: 'completed' as const
+      }));
+    } catch (error) {
       console.error('Error fetching exports:', error);
       return [];
     }
-
-    return data || [];
   }
 
   async createExport(
@@ -66,28 +81,8 @@ class ExportService {
         return { success: false, error: 'Failed to fetch chapters' };
       }
 
-      // Create export record
-      const fileName = `${metadata.title.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.${format.toLowerCase()}`;
-      
-      const { data: exportRecord, error: exportError } = await supabase
-        .from('exports')
-        .insert({
-          project_id: projectId,
-          format: format.toLowerCase(),
-          file_name: fileName,
-          file_size: 0, // Will be updated after file generation
-          file_url: '', // Will be updated after file upload
-          metadata,
-          status: 'processing'
-        })
-        .select()
-        .single();
-
-      if (exportError || !exportRecord) {
-        return { success: false, error: 'Failed to create export record' };
-      }
-
       // Generate the export file
+      const fileName = `${metadata.title.replace(/[^a-zA-Z0-9]/g, '_')}_${Date.now()}.${format.toLowerCase()}`;
       const exportData = this.generateExportContent(project, chapters || [], metadata, format);
       const blob = new Blob([exportData], { 
         type: this.getContentType(format) 
@@ -99,63 +94,25 @@ class ExportService {
         .upload(`${projectId}/${fileName}`, blob);
 
       if (uploadError) {
-        // Update export record with error status
-        await supabase
-          .from('exports')
-          .update({ status: 'failed' })
-          .eq('id', exportRecord.id);
-        
         return { success: false, error: 'Failed to upload export file' };
       }
 
-      // Get public URL
-      const { data: publicUrlData } = supabase.storage
-        .from('exports')
-        .getPublicUrl(`${projectId}/${fileName}`);
-
-      // Update export record with file info
-      await supabase
-        .from('exports')
-        .update({
-          file_size: blob.size,
-          file_url: publicUrlData.publicUrl,
-          status: 'completed'
-        })
-        .eq('id', exportRecord.id);
-
-      return { success: true, exportId: exportRecord.id };
+      return { success: true, exportId: crypto.randomUUID() };
     } catch (error) {
       console.error('Export error:', error);
       return { success: false, error: 'Unexpected error occurred' };
     }
   }
 
-  async deleteExport(exportId: string): Promise<boolean> {
+  async deleteExport(exportId: string, projectId: string, fileName: string): Promise<boolean> {
     try {
-      // Get export record to find file path
-      const { data: exportRecord, error: fetchError } = await supabase
-        .from('exports')
-        .select('*')
-        .eq('id', exportId)
-        .single();
-
-      if (fetchError || !exportRecord) {
-        return false;
-      }
-
       // Delete file from storage
-      const filePath = `${exportRecord.project_id}/${exportRecord.file_name}`;
-      await supabase.storage
+      const filePath = `${projectId}/${fileName}`;
+      const { error } = await supabase.storage
         .from('exports')
         .remove([filePath]);
 
-      // Delete export record
-      const { error: deleteError } = await supabase
-        .from('exports')
-        .delete()
-        .eq('id', exportId);
-
-      return !deleteError;
+      return !error;
     } catch (error) {
       console.error('Delete export error:', error);
       return false;
