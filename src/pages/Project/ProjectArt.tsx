@@ -5,42 +5,29 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Palette, Sparkles, Download, RefreshCw, Image } from "lucide-react";
-import { useState, useEffect } from "react";
-import { useToast } from "@/hooks/use-toast";
-import { imageGenerationService, GeneratedImage } from "@/services/imageGeneration";
-import { assetsService } from "@/services/assets";
-import { projectsService } from "@/services/projects";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { listAssets, createAssetFromFunctionResponse, type AssetRecord } from "@/services/assets";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { imageGenerationService } from "@/services/imageGeneration";
+import { projectsService } from "@/services/projects";
 
 const ProjectArt = () => {
+  const { id: projectId } = useParams();
   const { toast } = useToast();
-  const { projectId } = useParams();
   const [coverPrompt, setCoverPrompt] = useState("");
   const [selectedStyle, setSelectedStyle] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedCovers, setGeneratedCovers] = useState<GeneratedImage[]>([]);
+  const [generated, setGenerated] = useState<Array<{ url?: string; dataUrl?: string }>>([]);
+  const [savedCovers, setSavedCovers] = useState<AssetRecord[]>([]);
 
-  // Load existing covers when component mounts
+  // Load saved covers
   useEffect(() => {
-    const loadExistingCovers = async () => {
-      if (!projectId) return;
-      
-      try {
-        const assets = await assetsService.getProjectAssets(projectId, 'cover');
-        const covers: GeneratedImage[] = assets.map(asset => ({
-          success: true,
-          imageUrl: asset.url,
-          prompt: asset.prompt || '',
-          style: 'fantasy', // Default style since we don't store this yet
-          fileName: `cover_${asset.id}`
-        }));
-        setGeneratedCovers(covers);
-      } catch (error) {
-        console.error('Failed to load existing covers:', error);
-      }
-    };
-
-    loadExistingCovers();
+    if (!projectId) return;
+    listAssets({ projectId, type: "cover" })
+      .then(setSavedCovers)
+      .catch((e) => console.error("[COVERS] load failed:", e));
   }, [projectId]);
 
   const artStyles = [
@@ -72,32 +59,11 @@ const ProjectArt = () => {
         projectId
       });
 
-      // Save the generated cover to the database
-      if (projectId) {
-        try {
-          console.log('Saving asset:', { project_id: projectId, type: 'cover', url: result.imageUrl, prompt: result.prompt });
-          const savedAsset = await assetsService.createAsset({
-            project_id: projectId,
-            type: 'cover',
-            url: result.imageUrl,
-            prompt: result.prompt
-          });
-          console.log('Asset saved successfully:', savedAsset);
-        } catch (saveError) {
-          console.error('Failed to save asset:', saveError);
-          toast({
-            title: "Save Warning",
-            description: "Cover generated but not saved. It may not persist on refresh.",
-            variant: "destructive"
-          });
-        }
-      }
-
-      setGeneratedCovers(prev => [result, ...prev]);
+      setGenerated([{ url: result.imageUrl }]);
       
       toast({
         title: "Cover Generated!",
-        description: "Your new book cover has been added to the gallery."
+        description: "Your new book cover has been created. Use the Save button to keep it."
       });
       
       // Clear the form
@@ -114,6 +80,29 @@ const ProjectArt = () => {
       setIsGenerating(false);
     }
   };
+
+  async function handleSave(item: { url?: string; dataUrl?: string }) {
+    try {
+      if (!projectId) throw new Error("Missing project id.");
+      const { data: sess } = await supabase.auth.getSession?.() ?? {};
+      if (!sess?.session?.user) {
+        toast({ title: "Not signed in", description: "Please sign in again.", variant: "destructive" });
+        return;
+      }
+      if (!item?.url) throw new Error("Missing image URL from generator response.");
+      const saved = await createAssetFromFunctionResponse({
+        projectId,
+        type: "cover",
+        imageUrl: item.url,
+        prompt: coverPrompt || null
+      });
+      setSavedCovers((prev) => [saved, ...prev]);
+      toast({ title: "Saved", description: "Cover added to your project." });
+    } catch (e: any) {
+      console.error("[COVERS] save failed:", e);
+      toast({ title: "Save failed", description: e.message ?? "Could not save image.", variant: "destructive" });
+    }
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -206,87 +195,120 @@ const ProjectArt = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {generatedCovers.map((cover, index) => (
-                  <div key={`${cover.fileName}-${index}`} className="group relative">
-                    <div className="aspect-[2/3] rounded-lg overflow-hidden bg-gradient-to-br from-primary/20 to-accent/20 border-2 border-dashed border-muted-foreground/20">
-                      <img 
-                        src={cover.imageUrl} 
-                        alt={`Generated cover: ${cover.prompt}`}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    
-                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
-                      <Button 
-                        size="sm" 
-                        variant="secondary"
-                        onClick={async () => {
-                          if (!projectId) return;
-                          
-                          try {
-                            await projectsService.updateProject(projectId, {
-                              cover_image_url: cover.imageUrl
-                            });
-                            
-                            toast({
-                              title: "Cover Set!",
-                              description: "This cover is now your project's main cover."
-                            });
-                          } catch (error) {
-                            toast({
-                              title: "Failed to Set Cover",
-                              description: "Could not save this as your project cover.",
-                              variant: "destructive"
-                            });
-                          }
-                        }}
-                      >
-                        <Download className="h-4 w-4 mr-1" />
-                        Use Cover
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => {
-                          setCoverPrompt(cover.prompt);
-                          setSelectedStyle(cover.style);
-                          toast({
-                            title: "Prompt Loaded",
-                            description: "The original prompt has been loaded for remixing."
-                          });
-                        }}
-                      >
-                        <RefreshCw className="h-4 w-4 mr-1" />
-                        Remix
-                      </Button>
-                    </div>
-                    
-                    <div className="mt-2">
-                      <p className="text-sm font-medium line-clamp-2">{cover.prompt}</p>
-                      <p className="text-xs text-muted-foreground">{cover.style} Style</p>
-                    </div>
-                  </div>
-                ))}
-                
-                {/* Placeholder for new generation */}
-                {isGenerating && (
-                  <div className="aspect-[2/3] rounded-lg bg-gradient-to-br from-primary/10 to-accent/10 border-2 border-dashed border-primary/30 flex items-center justify-center">
-                    <div className="text-center">
-                      <RefreshCw className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
-                      <p className="text-sm text-muted-foreground">Generating...</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-              
-              {generatedCovers.length === 0 && !isGenerating && (
+              {generated.length === 0 && savedCovers.length === 0 && !isGenerating && (
                 <div className="text-center py-12">
                   <div className="p-4 bg-muted/30 rounded-full w-fit mx-auto mb-4">
                     <Image className="h-12 w-12 text-muted-foreground" />
                   </div>
-                  <h3 className="font-medium mb-2">No covers generated yet</h3>
-                  <p className="text-muted-foreground mb-4">Create your first book cover using the generator</p>
+                  <h3 className="font-medium mb-2">No covers yet</h3>
+                  <p className="text-muted-foreground mb-4">Generate your first cover to get started.</p>
+                </div>
+              )}
+
+              {generated.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-lg">Generated (unsaved)</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {generated.map((item, index) => (
+                      <div key={index} className="group relative">
+                        <div className="aspect-[2/3] rounded-lg overflow-hidden bg-gradient-to-br from-primary/20 to-accent/20 border-2 border-dashed border-muted-foreground/20">
+                          <img 
+                            src={item.url || item.dataUrl} 
+                            alt="Generated cover"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        
+                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                          <Button 
+                            size="sm" 
+                            variant="secondary"
+                            onClick={() => handleSave(item)}
+                          >
+                            Save
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {savedCovers.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-lg">Saved covers</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {savedCovers.map((cover) => (
+                      <div key={cover.id} className="group relative">
+                        <div className="aspect-[2/3] rounded-lg overflow-hidden bg-gradient-to-br from-primary/20 to-accent/20 border-2 border-dashed border-muted-foreground/20">
+                          <img 
+                            src={cover.url} 
+                            alt={`Saved cover: ${cover.prompt || 'Generated cover'}`}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        
+                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
+                          <Button 
+                            size="sm" 
+                            variant="secondary"
+                            onClick={async () => {
+                              if (!projectId) return;
+                              
+                              try {
+                                await projectsService.updateProject(projectId, {
+                                  cover_image_url: cover.url
+                                });
+                                
+                                toast({
+                                  title: "Cover Set!",
+                                  description: "This cover is now your project's main cover."
+                                });
+                              } catch (error) {
+                                toast({
+                                  title: "Failed to Set Cover",
+                                  description: "Could not save this as your project cover.",
+                                  variant: "destructive"
+                                });
+                              }
+                            }}
+                          >
+                            <Download className="h-4 w-4 mr-1" />
+                            Use Cover
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => {
+                              setCoverPrompt(cover.prompt || "");
+                              toast({
+                                title: "Prompt Loaded",
+                                description: "The original prompt has been loaded for remixing."
+                              });
+                            }}
+                          >
+                            <RefreshCw className="h-4 w-4 mr-1" />
+                            Remix
+                          </Button>
+                        </div>
+                        
+                        <div className="mt-2">
+                          <p className="text-sm font-medium line-clamp-2">{cover.prompt || 'Generated cover'}</p>
+                          <p className="text-xs text-muted-foreground">{new Date(cover.created_at).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Placeholder for new generation */}
+              {isGenerating && (
+                <div className="aspect-[2/3] rounded-lg bg-gradient-to-br from-primary/10 to-accent/10 border-2 border-dashed border-primary/30 flex items-center justify-center">
+                  <div className="text-center">
+                    <RefreshCw className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
+                    <p className="text-sm text-muted-foreground">Generating...</p>
+                  </div>
                 </div>
               )}
             </CardContent>
