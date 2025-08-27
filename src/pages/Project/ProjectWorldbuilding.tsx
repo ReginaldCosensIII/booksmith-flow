@@ -1,48 +1,22 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Globe, MapPin, Crown, Book, Edit, Trash2 } from "lucide-react";
-
-interface WorldNote {
-  id: string;
-  title: string;
-  type: 'location' | 'culture' | 'history' | 'magic' | 'politics' | 'other';
-  description: string;
-  details: string;
-  connections: string[];
-}
+import { Plus, Globe, MapPin, Crown, Book, Edit, Trash2, Calendar, Scroll } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { worldbuildingService, type WorldNote } from "@/services/worldbuilding";
+import { useOptimisticUpdate } from "@/hooks/useOptimisticUpdate";
 
 const ProjectWorldbuilding = () => {
-  const [worldNotes, setWorldNotes] = useState<WorldNote[]>([
-    {
-      id: "1",
-      title: "Kingdom of Eldara",
-      type: "location",
-      description: "A mystical realm where magic flows through ancient ley lines.",
-      details: "The Kingdom of Eldara is built upon a network of magical ley lines that converge at the Crystal Spire in the capital city. The landscape is diverse, ranging from the Whispering Cliffs in the north to the Shadowlands in the south. Magic is commonplace here, with floating bridges connecting the city districts and crystal formations providing natural lighting.",
-      connections: ["Crystal Spire", "Whispering Cliffs"]
-    },
-    {
-      id: "2", 
-      title: "Dragon Riders Order",
-      type: "culture",
-      description: "An ancient order of warriors bonded with dragons.",
-      details: "The Dragon Riders were once the protectors of Eldara, with each rider forming a lifelong bond with a dragon hatchling. The order was nearly destroyed in the Great War, leaving only a handful of riders scattered across the realm. They follow a strict code of honor and are trained from childhood in both combat and dragon care.",
-      connections: ["Kael Stormwind", "Great War"]
-    },
-    {
-      id: "3",
-      title: "The Dragon's Echo",
-      type: "magic",
-      description: "A legendary artifact of immense magical power.",
-      details: "The Dragon's Echo is said to be a crystallized fragment of the first dragon's roar, containing the pure essence of creation magic. It was hidden away centuries ago when its power threatened to tear reality apart. The artifact can amplify any magical ability a hundredfold, but at great personal cost to the wielder.",
-      connections: ["First Dragon", "Creation Magic"]
-    }
-  ]);
+  const { id: projectId } = useParams();
+  const { toast } = useToast();
+  const [worldNotes, setWorldNotes] = useState<WorldNote[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filteredType, setFilteredType] = useState<string | null>(null);
   
   const [selectedNote, setSelectedNote] = useState<WorldNote | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -51,29 +25,53 @@ const ProjectWorldbuilding = () => {
   const [formData, setFormData] = useState({
     title: "",
     type: "location" as WorldNote['type'],
-    description: "",
-    details: ""
+    body: ""
   });
+
+  // Load world notes on mount
+  useEffect(() => {
+    const loadWorldNotes = async () => {
+      if (!projectId) return;
+
+      try {
+        setLoading(true);
+        const data = await worldbuildingService.getWorldNotesByProject(projectId);
+        setWorldNotes(data);
+      } catch (error) {
+        console.error('Failed to load world notes:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load world notes. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadWorldNotes();
+  }, [projectId, toast]);
 
   const noteTypes = [
     { value: 'location', label: 'Location', icon: MapPin, color: 'text-blue-600', bg: 'bg-blue-500/10' },
-    { value: 'culture', label: 'Culture', icon: Crown, color: 'text-purple-600', bg: 'bg-purple-500/10' },
-    { value: 'history', label: 'History', icon: Book, color: 'text-amber-600', bg: 'bg-amber-500/10' },
-    { value: 'magic', label: 'Magic', icon: Globe, color: 'text-pink-600', bg: 'bg-pink-500/10' },
-    { value: 'politics', label: 'Politics', icon: Crown, color: 'text-red-600', bg: 'bg-red-500/10' },
-    { value: 'other', label: 'Other', icon: Book, color: 'text-gray-600', bg: 'bg-gray-500/10' }
+    { value: 'rule', label: 'Rules', icon: Book, color: 'text-purple-600', bg: 'bg-purple-500/10' },
+    { value: 'timeline', label: 'Timeline', icon: Calendar, color: 'text-amber-600', bg: 'bg-amber-500/10' },
+    { value: 'other', label: 'Other', icon: Scroll, color: 'text-gray-600', bg: 'bg-gray-500/10' }
   ];
 
   const getTypeConfig = (type: string) => {
     return noteTypes.find(t => t.value === type) || noteTypes[noteTypes.length - 1];
   };
 
+  const filteredNotes = filteredType 
+    ? worldNotes.filter(note => note.type === filteredType)
+    : worldNotes;
+
   const handleAddNote = () => {
     setFormData({
       title: "",
       type: "location",
-      description: "",
-      details: ""
+      body: ""
     });
     setIsEditing(false);
     setIsDialogOpen(true);
@@ -82,35 +80,123 @@ const ProjectWorldbuilding = () => {
   const handleEditNote = (note: WorldNote) => {
     setFormData({
       title: note.title,
-      type: note.type,
-      description: note.description,
-      details: note.details
+      type: note.type || "location",
+      body: note.body || ""
     });
     setSelectedNote(note);
     setIsEditing(true);
     setIsDialogOpen(true);
   };
 
-  const handleSaveNote = () => {
-    const noteData: WorldNote = {
-      id: selectedNote?.id || Date.now().toString(),
-      title: formData.title,
-      type: formData.type,
-      description: formData.description,
-      details: formData.details,
-      connections: selectedNote?.connections || []
-    };
+  // Optimistic updates for world note operations
+  const { execute: createNoteWithOptimism } = useOptimisticUpdate(
+    worldbuildingService.createWorldNote,
+    {
+      successMessage: "World note created successfully!",
+      errorMessage: "Failed to create world note. Please try again.",
+    }
+  );
+
+  const { execute: updateNoteWithOptimism } = useOptimisticUpdate(
+    worldbuildingService.updateWorldNote,
+    {
+      successMessage: "World note updated successfully!",
+      errorMessage: "Failed to update world note. Please try again.",
+    }
+  );
+
+  const { execute: deleteNoteWithOptimism } = useOptimisticUpdate(
+    worldbuildingService.deleteWorldNote,
+    {
+      successMessage: "World note deleted successfully!",
+      errorMessage: "Failed to delete world note. Please try again.",
+    }
+  );
+
+  const handleSaveNote = async () => {
+    if (!projectId || !formData.title.trim()) {
+      toast({
+        title: "Error",
+        description: "Note title is required.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     if (isEditing && selectedNote) {
-      setWorldNotes(prev => prev.map(note => 
-        note.id === selectedNote.id ? noteData : note
-      ));
+      // Update existing note
+      const updatedData = {
+        title: formData.title,
+        type: formData.type,
+        body: formData.body
+      };
+
+      await updateNoteWithOptimism(
+        () => {
+          setWorldNotes(prev => prev.map(note => 
+            note.id === selectedNote.id 
+              ? { ...note, ...updatedData }
+              : note
+          ));
+        },
+        () => {
+          setWorldNotes(prev => prev.map(note => 
+            note.id === selectedNote.id 
+              ? selectedNote
+              : note
+          ));
+        },
+        selectedNote.id,
+        updatedData
+      );
     } else {
-      setWorldNotes(prev => [...prev, noteData]);
+      // Create new note
+      const newNoteData = {
+        project_id: projectId,
+        title: formData.title,
+        type: formData.type,
+        body: formData.body
+      };
+
+      const tempId = Date.now().toString();
+      const tempNote = {
+        ...newNoteData,
+        id: tempId,
+        created_at: new Date().toISOString()
+      };
+
+      const result = await createNoteWithOptimism(
+        () => {
+          setWorldNotes(prev => [...prev, tempNote]);
+        },
+        () => {
+          setWorldNotes(prev => prev.filter(note => note.id !== tempId));
+        },
+        newNoteData
+      );
+
+      if (result) {
+        // Replace temp note with real one
+        setWorldNotes(prev => prev.map(note => 
+          note.id === tempId ? result : note
+        ));
+      }
     }
 
     setIsDialogOpen(false);
     setSelectedNote(null);
+  };
+
+  const handleDeleteNote = async (note: WorldNote) => {
+    await deleteNoteWithOptimism(
+      () => {
+        setWorldNotes(prev => prev.filter(n => n.id !== note.id));
+      },
+      () => {
+        setWorldNotes(prev => [...prev, note]);
+      },
+      note.id
+    );
   };
 
   return (
@@ -127,16 +213,24 @@ const ProjectWorldbuilding = () => {
         </Button>
       </div>
 
-      {/* Filter by type */}
       <div className="flex flex-wrap gap-2">
+        <Button
+          variant={filteredType === null ? "default" : "outline"}
+          size="sm"
+          onClick={() => setFilteredType(null)}
+          className="text-foreground"
+        >
+          All ({worldNotes.length})
+        </Button>
         {noteTypes.map((type) => {
           const Icon = type.icon;
           const count = worldNotes.filter(note => note.type === type.value).length;
           return (
             <Button
               key={type.value}
-              variant="outline"
+              variant={filteredType === type.value ? "default" : "outline"}
               size="sm"
+              onClick={() => setFilteredType(type.value)}
               className={`${type.bg} ${type.color} border-current/20 hover:${type.bg}/80`}
             >
               <Icon className="h-4 w-4 mr-2" />
@@ -146,76 +240,77 @@ const ProjectWorldbuilding = () => {
         })}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {worldNotes.map((note) => {
-          const typeConfig = getTypeConfig(note.type);
-          const Icon = typeConfig.icon;
-          
-          return (
-            <Card key={note.id} className="group hover:shadow-elegant transition-all bg-gradient-card border-0">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-lg ${typeConfig.bg}`}>
-                      <Icon className={`h-5 w-5 ${typeConfig.color}`} />
-                    </div>
-                    <div>
-                      <CardTitle className="text-lg">{note.title}</CardTitle>
-                      <span className={`text-xs font-medium ${typeConfig.color}`}>
-                        {typeConfig.label}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      onClick={() => handleEditNote(note)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon">
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              
-              <CardContent className="space-y-3">
-                <p className="text-sm text-muted-foreground line-clamp-2">
-                  {note.description}
-                </p>
-                
-                <div className="space-y-2">
-                  <h4 className="font-medium text-sm">Details</h4>
-                  <p className="text-sm text-muted-foreground line-clamp-4">
-                    {note.details}
-                  </p>
-                </div>
-                
-                {note.connections.length > 0 && (
-                  <div className="space-y-2">
-                    <h4 className="font-medium text-sm">Connected To</h4>
-                    <div className="flex flex-wrap gap-1">
-                      {note.connections.slice(0, 3).map((connection, index) => (
-                        <span key={index} className="px-2 py-1 bg-muted rounded-full text-xs">
-                          {connection}
+      {loading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="text-muted-foreground">Loading world notes...</div>
+        </div>
+      ) : worldNotes.length === 0 ? (
+        <div className="flex flex-col items-center justify-center h-64 space-y-4">
+          <div className="p-4 bg-muted/10 rounded-full">
+            <Globe className="h-8 w-8 text-muted-foreground" />
+          </div>
+          <div className="text-center">
+            <h3 className="text-lg font-medium mb-2">No world notes yet</h3>
+            <p className="text-muted-foreground mb-4">Create your first world note to start building your story's universe.</p>
+            <Button onClick={handleAddNote}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add First Note
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredNotes.map((note) => {
+            const typeConfig = getTypeConfig(note.type);
+            const Icon = typeConfig.icon;
+            
+            return (
+              <Card key={note.id} className="group hover:shadow-elegant transition-all bg-gradient-card border-0">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-lg ${typeConfig.bg}`}>
+                        <Icon className={`h-5 w-5 ${typeConfig.color}`} />
+                      </div>
+                      <div>
+                        <CardTitle className="text-lg">{note.title}</CardTitle>
+                        <span className={`text-xs font-medium ${typeConfig.color}`}>
+                          {typeConfig.label}
                         </span>
-                      ))}
-                      {note.connections.length > 3 && (
-                        <span className="px-2 py-1 bg-muted rounded-full text-xs">
-                          +{note.connections.length - 3} more
-                        </span>
-                      )}
+                      </div>
+                    </div>
+                    
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => handleEditNote(note)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        onClick={() => handleDeleteNote(note)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+                </CardHeader>
+                
+                <CardContent className="space-y-3">
+                  {note.body && (
+                    <p className="text-sm text-muted-foreground line-clamp-4">
+                      {note.body}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
 
       {/* World Note Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -259,24 +354,13 @@ const ProjectWorldbuilding = () => {
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="description">Short Description</Label>
+              <Label htmlFor="body">Content</Label>
               <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Brief description or summary"
-                rows={2}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="details">Detailed Information</Label>
-              <Textarea
-                id="details"
-                value={formData.details}
-                onChange={(e) => setFormData({ ...formData, details: e.target.value })}
-                placeholder="Detailed description, history, characteristics, etc."
-                rows={8}
+                id="body"
+                value={formData.body}
+                onChange={(e) => setFormData({ ...formData, body: e.target.value })}
+                placeholder="Detailed information about this world element..."
+                rows={12}
               />
             </div>
           </div>
