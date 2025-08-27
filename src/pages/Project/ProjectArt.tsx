@@ -7,12 +7,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Palette, Sparkles, Download, RefreshCw, Image } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { imageGenerationService, GeneratedImage } from "@/services/imageGeneration";
+import { useParams } from "react-router-dom";
 
 const ProjectArt = () => {
   const { toast } = useToast();
+  const { projectId } = useParams();
   const [coverPrompt, setCoverPrompt] = useState("");
   const [selectedStyle, setSelectedStyle] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedCovers, setGeneratedCovers] = useState<GeneratedImage[]>([]);
 
   const artStyles = [
     { value: "fantasy", label: "Fantasy", description: "Mystical and magical themes" },
@@ -23,26 +27,6 @@ const ProjectArt = () => {
     { value: "minimalist", label: "Minimalist", description: "Clean and simple design" }
   ];
 
-  const mockGeneratedCovers = [
-    {
-      id: 1,
-      prompt: "Dragon soaring over crystal mountains with purple sky",
-      style: "Fantasy",
-      image: "https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=300&h=450&fit=crop"
-    },
-    {
-      id: 2,
-      prompt: "Mystical forest with floating lights and ancient ruins",
-      style: "Fantasy", 
-      image: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=300&h=450&fit=crop"
-    },
-    {
-      id: 3,
-      prompt: "Silhouette of a mage casting spells against starry sky",
-      style: "Fantasy",
-      image: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=300&h=450&fit=crop"
-    }
-  ];
 
   const handleGenerateCover = async () => {
     if (!coverPrompt.trim() || !selectedStyle) {
@@ -56,14 +40,33 @@ const ProjectArt = () => {
 
     setIsGenerating(true);
     
-    // TODO: Implement actual AI cover generation
-    setTimeout(() => {
+    try {
+      const result = await imageGenerationService.generateCover({
+        prompt: coverPrompt,
+        style: selectedStyle,
+        projectId
+      });
+
+      setGeneratedCovers(prev => [result, ...prev]);
+      
       toast({
         title: "Cover Generated!",
         description: "Your new book cover has been added to the gallery."
       });
+      
+      // Clear the form
+      setCoverPrompt("");
+      setSelectedStyle("");
+    } catch (error) {
+      console.error('Image generation error:', error);
+      toast({
+        title: "Generation Failed",
+        description: error instanceof Error ? error.message : "Failed to generate cover. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
       setIsGenerating(false);
-    }, 3000);
+    }
   };
 
   return (
@@ -158,22 +161,42 @@ const ProjectArt = () => {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {mockGeneratedCovers.map((cover) => (
-                  <div key={cover.id} className="group relative">
+                {generatedCovers.map((cover, index) => (
+                  <div key={`${cover.fileName}-${index}`} className="group relative">
                     <div className="aspect-[2/3] rounded-lg overflow-hidden bg-gradient-to-br from-primary/20 to-accent/20 border-2 border-dashed border-muted-foreground/20">
                       <img 
-                        src={cover.image} 
+                        src={cover.imageUrl} 
                         alt={`Generated cover: ${cover.prompt}`}
                         className="w-full h-full object-cover"
                       />
                     </div>
                     
                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
-                      <Button size="sm" variant="secondary">
+                      <Button 
+                        size="sm" 
+                        variant="secondary"
+                        onClick={() => {
+                          toast({
+                            title: "Cover Set!",
+                            description: "This cover is now your project's main cover."
+                          });
+                        }}
+                      >
                         <Download className="h-4 w-4 mr-1" />
                         Use Cover
                       </Button>
-                      <Button size="sm" variant="outline">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => {
+                          setCoverPrompt(cover.prompt);
+                          setSelectedStyle(cover.style);
+                          toast({
+                            title: "Prompt Loaded",
+                            description: "The original prompt has been loaded for remixing."
+                          });
+                        }}
+                      >
                         <RefreshCw className="h-4 w-4 mr-1" />
                         Remix
                       </Button>
@@ -197,7 +220,7 @@ const ProjectArt = () => {
                 )}
               </div>
               
-              {mockGeneratedCovers.length === 0 && !isGenerating && (
+              {generatedCovers.length === 0 && !isGenerating && (
                 <div className="text-center py-12">
                   <div className="p-4 bg-muted/30 rounded-full w-fit mx-auto mb-4">
                     <Image className="h-12 w-12 text-muted-foreground" />
