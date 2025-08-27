@@ -74,12 +74,23 @@ const ProjectArt = () => {
 
       // Save the generated cover to the database
       if (projectId) {
-        await assetsService.createAsset({
-          project_id: projectId,
-          type: 'cover',
-          url: result.imageUrl,
-          prompt: result.prompt
-        });
+        try {
+          console.log('Saving asset:', { project_id: projectId, type: 'cover', url: result.imageUrl, prompt: result.prompt });
+          const savedAsset = await assetsService.createAsset({
+            project_id: projectId,
+            type: 'cover',
+            url: result.imageUrl,
+            prompt: result.prompt
+          });
+          console.log('Asset saved successfully:', savedAsset);
+        } catch (saveError) {
+          console.error('Failed to save asset:', saveError);
+          toast({
+            title: "Save Warning",
+            description: "Cover generated but not saved. It may not persist on refresh.",
+            variant: "destructive"
+          });
+        }
       }
 
       setGeneratedCovers(prev => [result, ...prev]);
