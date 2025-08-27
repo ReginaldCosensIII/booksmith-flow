@@ -1,10 +1,11 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Palette, Sparkles, Download, RefreshCw, Image } from "lucide-react";
+import { Palette, Sparkles, Download, RefreshCw, Image, Maximize2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { listAssets, createAssetFromFunctionResponse, type AssetRecord } from "@/services/assets";
@@ -21,6 +22,8 @@ const ProjectArt = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generated, setGenerated] = useState<Array<{ url?: string; dataUrl?: string; prompt?: string; style?: string }>>([]);
   const [savedCovers, setSavedCovers] = useState<AssetRecord[]>([]);
+  const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
+  const [isFullscreenOpen, setIsFullscreenOpen] = useState(false);
 
   // Load saved covers
   useEffect(() => {
@@ -109,6 +112,11 @@ const ProjectArt = () => {
     }
   }
 
+  const handleImageClick = (imageUrl: string) => {
+    setSelectedImageUrl(imageUrl);
+    setIsFullscreenOpen(true);
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -155,6 +163,20 @@ const ProjectArt = () => {
                         </div>
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Image Format</Label>
+                <Select defaultValue="portrait">
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="portrait">Portrait (2:3) - Standard Book Cover</SelectItem>
+                    <SelectItem value="square">Square (1:1) - Social Media</SelectItem>
+                    <SelectItem value="landscape">Landscape (3:2) - Wide Display</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -214,17 +236,23 @@ const ProjectArt = () => {
                 <div className="space-y-4">
                   <h3 className="font-semibold text-lg">Generated (unsaved)</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                    {generated.map((item, index) => (
-                      <div key={index} className="group relative">
-                        <div className="aspect-[2/3] rounded-lg overflow-hidden bg-gradient-to-br from-primary/20 to-accent/20 border-2 border-dashed border-muted-foreground/20">
-                          <img 
-                            src={item.url || item.dataUrl} 
-                            alt="Generated cover"
-                            className="w-full h-full object-cover"
-                          />
+                     {generated.map((item, index) => (
+                       <div key={index} className="group relative">
+                         <div className="aspect-[2/3] rounded-lg overflow-hidden bg-gradient-to-br from-primary/20 to-accent/20 border-2 border-dashed border-muted-foreground/20 cursor-pointer hover:scale-105 transition-transform">
+                           <img 
+                             src={item.url || item.dataUrl} 
+                             alt="Generated cover"
+                             className="w-full h-full object-cover"
+                             onClick={() => handleImageClick(item.url || item.dataUrl || '')}
+                           />
+                           <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                             <div className="bg-black/50 rounded-full p-1">
+                               <Maximize2 className="h-4 w-4 text-white" />
+                             </div>
+                           </div>
                         </div>
-                        
-                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                         
+                         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
                           <Button 
                             size="sm" 
                             variant="secondary"
@@ -243,17 +271,23 @@ const ProjectArt = () => {
                 <div className="space-y-4">
                   <h3 className="font-semibold text-lg">Saved covers</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                    {savedCovers.map((cover) => (
-                      <div key={cover.id} className="group relative">
-                        <div className="aspect-[2/3] rounded-lg overflow-hidden bg-gradient-to-br from-primary/20 to-accent/20 border-2 border-dashed border-muted-foreground/20">
-                          <img 
-                            src={cover.url} 
-                            alt={`Saved cover: ${cover.prompt || 'Generated cover'}`}
-                            className="w-full h-full object-cover"
-                          />
+                     {savedCovers.map((cover) => (
+                       <div key={cover.id} className="group relative">
+                         <div className="aspect-[2/3] rounded-lg overflow-hidden bg-gradient-to-br from-primary/20 to-accent/20 border-2 border-dashed border-muted-foreground/20 cursor-pointer hover:scale-105 transition-transform">
+                           <img 
+                             src={cover.url} 
+                             alt={`Saved cover: ${cover.prompt || 'Generated cover'}`}
+                             className="w-full h-full object-cover"
+                             onClick={() => handleImageClick(cover.url)}
+                           />
+                           <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                             <div className="bg-black/50 rounded-full p-1">
+                               <Maximize2 className="h-4 w-4 text-white" />
+                             </div>
+                           </div>
                         </div>
-                        
-                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
+                         
+                         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center gap-2">
                           <Button 
                             size="sm" 
                             variant="secondary"
@@ -377,6 +411,32 @@ const ProjectArt = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Fullscreen Image Viewer */}
+      <Dialog open={isFullscreenOpen} onOpenChange={setIsFullscreenOpen}>
+        <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 border-0 bg-black/90">
+          <DialogHeader className="absolute top-4 left-4 z-10">
+            <DialogTitle className="text-white">Cover Preview</DialogTitle>
+          </DialogHeader>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-4 right-4 z-10 text-white hover:bg-white/20"
+            onClick={() => setIsFullscreenOpen(false)}
+          >
+            <X className="h-6 w-6" />
+          </Button>
+          <div className="flex items-center justify-center min-h-[80vh] p-8">
+            {selectedImageUrl && (
+              <img
+                src={selectedImageUrl}
+                alt="Cover preview"
+                className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
