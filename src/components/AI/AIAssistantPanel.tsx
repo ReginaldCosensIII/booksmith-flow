@@ -53,10 +53,11 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
 
     try {
       const options: AIWritingOptions = {
-        currentContent: customInstructions || currentContent,
+        currentContent,
         chapterTitle,
         projectGenre,
-        style: feature
+        style: feature,
+        customInstructions
       };
 
       let response;
@@ -77,16 +78,23 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
           throw new Error('Unknown AI feature');
       }
 
-      setLastResponse({
-        content: response.content,
-        suggestions: response.suggestions || [],
-        feature
-      });
+      console.log('AI Response received:', response);
+      
+      if (response && response.content) {
+        setLastResponse({
+          content: response.content,
+          suggestions: response.suggestions || [],
+          feature
+        });
 
-      toast({
-        title: "AI Assistant",
-        description: `${feature.charAt(0).toUpperCase() + feature.slice(1)} completed successfully!`
-      });
+        toast({
+          title: "AI Assistant",
+          description: `${feature.charAt(0).toUpperCase() + feature.slice(1)} completed successfully!`
+        });
+      } else {
+        console.error('Invalid AI response:', response);
+        throw new Error('AI response was empty or invalid');
+      }
 
     } catch (error) {
       console.error('AI Service Error:', error);
@@ -241,7 +249,7 @@ export const AIAssistantPanel: React.FC<AIAssistantPanelProps> = ({
           </div>
           
           <Button
-            onClick={() => handleAIAction('continue', customPrompt)}
+            onClick={() => handleAIAction('brainstorm', customPrompt)}
             disabled={loading || !customPrompt.trim()}
             className="w-full"
           >
