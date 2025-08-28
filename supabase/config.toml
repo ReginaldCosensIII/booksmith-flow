@@ -60,3 +60,6 @@ inspector_port = 8083
 
 [functions.generate-image]
 verify_jwt = false
+
+[functions.ai-writing-assistant]
+verify_jwt = false
